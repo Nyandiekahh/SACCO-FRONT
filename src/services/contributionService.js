@@ -1,5 +1,6 @@
 // services/contributionService.js
 import api from './api';
+import memberService from './memberService';
 
 const contributionService = {
   /**
@@ -17,7 +18,27 @@ const contributionService = {
     });
     
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    // Use admin endpoint for all contributions
     const response = await api.get(`/contributions/monthly/${queryString}`);
+    return response;
+  },
+
+  /**
+   * Get member monthly contributions
+   * @param {Object} filters - Optional filters for the request
+   * @returns {Promise<Array>} - List of monthly contributions for the current member
+   */
+  getMemberContributions: async (filters = {}) => {
+    // Convert filters to query params
+    const queryParams = new URLSearchParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined) {
+        queryParams.append(key, filters[key]);
+      }
+    });
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const response = await api.get(`/contributions/member/monthly/${queryString}`);
     return response;
   },
 
@@ -48,7 +69,9 @@ const contributionService = {
    * @returns {Promise<Object>} - Members with missing contributions
    */
   getMissingContributions: async (year, month) => {
-    const response = await api.get(`/contributions/monthly/missing_contributions/?year=${year}&month=${month}`);
+    const response = await api.get(`/contributions/monthly/missing_contributions/`, { 
+      params: { year, month } 
+    });
     return response;
   },
 
@@ -69,7 +92,9 @@ const contributionService = {
    * @returns {Promise<Object>} - Generated report
    */
   generateMonthlyReport: async (year, month) => {
-    const response = await api.get(`/contributions/monthly/generate_report/?year=${year}&month=${month}`);
+    const response = await api.get('/contributions/monthly/generate_report/', {
+      params: { year, month }
+    });
     return response;
   },
 
@@ -88,7 +113,27 @@ const contributionService = {
     });
     
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    // Use admin endpoint for all share capital payments
     const response = await api.get(`/contributions/share-capital/${queryString}`);
+    return response;
+  },
+
+  /**
+   * Get member share capital payments
+   * @param {Object} filters - Optional filters for the request
+   * @returns {Promise<Array>} - List of share capital payments for the current member
+   */
+  getMemberShareCapital: async (filters = {}) => {
+    // Convert filters to query params
+    const queryParams = new URLSearchParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined) {
+        queryParams.append(key, filters[key]);
+      }
+    });
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const response = await api.get(`/contributions/member/share-capital/${queryString}`);
     return response;
   },
 
@@ -176,10 +221,12 @@ const contributionService = {
    */
   getContributionStats: async () => {
     try {
-      // In a real implementation, this would call to a dedicated endpoint
-      // For now, we'll simulate by getting contributions and calculating stats
+      // Get monthly contributions
       const monthlyContributions = await contributionService.getMonthlyContributions();
       const shareCapitalPayments = await contributionService.getShareCapitalPayments();
+      
+      // Get member stats
+      const memberStats = await memberService.getMemberStats();
       
       // Get current month and year
       const now = new Date();
@@ -204,11 +251,10 @@ const contributionService = {
         return sum + (parseFloat(payment.amount) || 0);
       }, 0);
       
-      // Calculate contributing members percentage (assume 100 total members for now)
-      // In real implementation, you'd need to get total member count from memberService
+      // Calculate contributing members percentage using memberStats
       const contributingMembersCount = new Set(monthlyContributions.map(c => c.member)).size;
-      const totalMembers = 100; // Placeholder value
-      const contributingMembersPercentage = Math.round((contributingMembersCount / totalMembers) * 100);
+      const totalMembers = memberStats.totalMembers;
+      const contributingMembersPercentage = totalMembers ? Math.round((contributingMembersCount / totalMembers) * 100) : 0;
       
       return {
         totalContributions,

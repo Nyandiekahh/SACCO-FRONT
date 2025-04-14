@@ -18,9 +18,13 @@ const AdminLayout = ({ children }) => {
     { name: 'Members', href: '/admin/members', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { name: 'Contributions', href: '/admin/contributions', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
     { name: 'Loans', href: '/admin/loans', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { name: 'Transactions', href: '/admin/transactions', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
     { name: 'Reports', href: '/admin/reports', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
     { name: 'Settings', href: '/admin/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
   ];
+
+  // Get current user's first letter for avatar
+  const userInitial = currentUser?.full_name ? currentUser.full_name[0] : 'A';
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
@@ -138,10 +142,12 @@ const AdminLayout = ({ children }) => {
                     <span className="sr-only">Open user menu</span>
                     <span className="h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center">
                       <span className="text-white font-medium">
-                        A
+                        {userInitial}
                       </span>
                     </span>
-                    <span className="ml-2 text-gray-700">Admin</span>
+                    <span className="ml-2 text-gray-700">
+                      {currentUser?.full_name || 'Admin'}
+                    </span>
                   </button>
                 </div>
               </div>

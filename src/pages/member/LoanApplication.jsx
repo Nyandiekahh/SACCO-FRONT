@@ -44,7 +44,7 @@ const LoanApplication = () => {
     const checkEligibility = async () => {
       try {
         setLoading(true);
-        const response = await loanService.checkEligibility();
+        const response = await loanService.checkLoanEligibility();
         setEligibility(response);
       } catch (err) {
         console.error('Failed to check loan eligibility:', err);

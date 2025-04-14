@@ -11,7 +11,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, currentUser } = useAuth();
 
   const validate = () => {
     const newErrors = {};
@@ -42,8 +42,23 @@ const Login = () => {
       const result = await login(email, password);
       
       if (result.success) {
-        // Redirect to dashboard
-        navigate('/member/dashboard');
+        // Get the updated user profile after login
+        // (currentUser should now be set by the login function)
+        
+        // Different ways to check if user is admin
+        const isAdmin = 
+          currentUser.role === 'ADMIN' || 
+          currentUser.is_admin === true || 
+          currentUser.role?.toUpperCase() === 'ADMIN';
+        
+        console.log('User logged in. Role:', currentUser.role, 'Is Admin:', isAdmin);
+        
+        // Redirect based on role
+        if (isAdmin) {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/member/dashboard');
+        }
       } else {
         setError(result.error);
       }

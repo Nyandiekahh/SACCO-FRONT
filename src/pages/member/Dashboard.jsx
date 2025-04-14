@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import MemberLayout from '../../layouts/MemberLayout';
 import { Link } from 'react-router-dom';
 import { memberService } from '../../services';
+import transactionService from '../../services/transactionService';
 import { 
   Wallet, 
   CreditCard, 
   FileText, 
   RefreshCw, 
   User, 
-  BarChart2 
+  BarChart2,
+  DollarSign
 } from 'lucide-react';
 import {
   ProfileSummary,
@@ -17,6 +19,63 @@ import {
   NextContribution,
   DocumentVerification
 } from '../../components/member/dashboard';
+
+// Utility to format currency
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES'
+  }).format(amount);
+};
+
+// Financial Summary Component
+const FinancialSummary = ({ financialData }) => {
+  if (!financialData) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="h-24 bg-gray-200 rounded"></div>
+          <div className="h-24 bg-gray-200 rounded"></div>
+          <div className="h-24 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="px-6 py-5 border-b border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900">Financial Summary</h3>
+      </div>
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm font-medium text-blue-600">Monthly Contributions</p>
+            <p className="mt-2 text-3xl font-bold text-blue-800">
+              {formatCurrency(financialData.monthlyContributions)}
+            </p>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <p className="text-sm font-medium text-green-600">Share Capital</p>
+            <p className="mt-2 text-3xl font-bold text-green-800">
+              {formatCurrency(financialData.shareCapital)}
+            </p>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <p className="text-sm font-medium text-purple-600">Total Investments</p>
+            <p className="mt-2 text-3xl font-bold text-purple-800">
+              {formatCurrency(financialData.totalInvestments)}
+            </p>
+            <p className="mt-1 text-xs text-purple-600">
+              (Contributions + Share Capital)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Quick Action Card Component
 const QuickActionCard = ({ icon: Icon, title, description, to, bgColor }) => (
@@ -41,13 +100,21 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
+  const [financialData, setFinancialData] = useState(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchAllData = async () => {
       try {
         setLoading(true);
-        const data = await memberService.getMemberDashboard();
-        setDashboardData(data);
+        
+        // Fetch dashboard data and financial summary in parallel
+        const [dashboardResponse, financialResponse] = await Promise.all([
+          memberService.getMemberDashboard(),
+          transactionService.calculateTotalInvestments()
+        ]);
+        
+        setDashboardData(dashboardResponse);
+        setFinancialData(financialResponse);
         setLoading(false);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
@@ -56,7 +123,7 @@ const Dashboard = () => {
       }
     };
 
-    fetchDashboardData();
+    fetchAllData();
   }, []);
 
   if (loading) {
@@ -102,6 +169,11 @@ const Dashboard = () => {
     <MemberLayout>
       {/* Profile Summary */}
       <ProfileSummary profile={profile} />
+
+      {/* Financial Summary */}
+      <div className="mt-6">
+        <FinancialSummary financialData={financialData} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         {/* Shares & Contributions */}
