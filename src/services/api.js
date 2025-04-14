@@ -1,8 +1,36 @@
 // services/api.js
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
+// Track request timestamps to prevent rate limiting
+const requestTimestamps = {};
+const THROTTLE_INTERVAL = 500; // 500ms between requests to the same endpoint
+
 class ApiClient {
+  // Throttle requests to prevent 429 errors
+  async throttleRequest(endpoint) {
+    const now = Date.now();
+    
+    // Check if we've recently made a request to this endpoint
+    if (requestTimestamps[endpoint]) {
+      const timeSinceLastRequest = now - requestTimestamps[endpoint];
+      
+      // If the request is too soon after the previous one, delay it
+      if (timeSinceLastRequest < THROTTLE_INTERVAL) {
+        const delayTime = THROTTLE_INTERVAL - timeSinceLastRequest;
+        await new Promise(resolve => setTimeout(resolve, delayTime));
+      }
+    }
+    
+    // Update timestamp for this endpoint
+    requestTimestamps[endpoint] = Date.now();
+  }
+
   async request(endpoint, options = {}) {
+    // Apply request throttling for GET requests or profile endpoints
+    if (options.method === 'GET' || endpoint.includes('profile')) {
+      await this.throttleRequest(endpoint);
+    }
+    
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -26,6 +54,15 @@ class ApiClient {
     
     try {
       const response = await fetch(`${API_URL}${endpoint}`, config);
+      
+      // Handle 429 Too Many Requests
+      if (response.status === 429) {
+        console.warn(`Rate limit hit on ${endpoint}. Waiting and retrying...`);
+        // Wait for a longer time before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Try again with increased backoff
+        return this.request(endpoint, options);
+      }
       
       // Handle 401 Unauthorized - attempt token refresh
       if (response.status === 401) {
@@ -54,8 +91,23 @@ class ApiClient {
       }
       
       // Handle API errors
-      const error = await response.json();
-      return Promise.reject(error);
+      try {
+        const contentType = response.headers.get('content-type');
+        const errorData = contentType && contentType.includes('application/json') 
+          ? await response.json() 
+          : await response.text();
+          
+        return Promise.reject({
+          status: response.status,
+          data: errorData,
+          message: typeof errorData === 'string' ? errorData : (errorData.error || errorData.detail || `Error ${response.status}`)
+        });
+      } catch (parseError) {
+        return Promise.reject({
+          status: response.status,
+          message: `Error ${response.status}`
+        });
+      }
     } catch (error) {
       return Promise.reject(error);
     }

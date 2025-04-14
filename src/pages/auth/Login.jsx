@@ -11,7 +11,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   
   const navigate = useNavigate();
-  const { login, currentUser } = useAuth();
+  const { login } = useAuth();
 
   const validate = () => {
     const newErrors = {};
@@ -39,32 +39,16 @@ const Login = () => {
     setError(null);
     
     try {
+      // The login function from AuthContext will handle navigation
       const result = await login(email, password);
       
-      if (result.success) {
-        // Get the updated user profile after login
-        // (currentUser should now be set by the login function)
-        
-        // Different ways to check if user is admin
-        const isAdmin = 
-          currentUser.role === 'ADMIN' || 
-          currentUser.is_admin === true || 
-          currentUser.role?.toUpperCase() === 'ADMIN';
-        
-        console.log('User logged in. Role:', currentUser.role, 'Is Admin:', isAdmin);
-        
-        // Redirect based on role
-        if (isAdmin) {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/member/dashboard');
-        }
-      } else {
-        setError(result.error);
+      if (!result.success) {
+        console.error('Login failed:', result.error);
+        setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
       console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

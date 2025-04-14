@@ -1,188 +1,238 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import authService from '../services/authService';
 
 // Create context
 const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider = ({ children, navigate }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  useEffect(() => {
-    // Check if user is already logged in
-    const checkLoggedIn = async () => {
+  // Comprehensive user initialization - only runs once at startup
+  const initializeUser = useCallback(async () => {
+    // Skip if we're already past the initial load
+    if (!isInitializing) return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Check if a token exists
       if (authService.isAuthenticated()) {
         try {
-          const response = await authService.getCurrentUser();
-          setCurrentUser(response);
-        } catch (err) {
-          console.error('Failed to get user profile:', err);
+          // Attempt to get user profile
+          const userProfile = await authService.getCurrentUser();
+          setCurrentUser(userProfile);
+          console.log('User profile loaded successfully');
+        } catch (profileError) {
+          console.error('Failed to load user profile:', profileError);
+          
+          // If profile fetch fails, logout the user
           authService.logout();
+          setCurrentUser(null);
+          
+          // Optionally redirect to login
+          if (navigate) {
+            navigate('/login');
+          }
         }
       }
+    } catch (err) {
+      console.error('User initialization error:', err);
+      setError('Failed to initialize user session');
+    } finally {
       setLoading(false);
-    };
+      setIsInitializing(false);
+    }
+  }, [navigate, isInitializing]);
 
-    checkLoggedIn();
-  }, []);
+  // Initialize user on component mount - only once
+  useEffect(() => {
+    initializeUser();
+  }, [initializeUser]);
 
-  // Standard login with password
+  // Login method with comprehensive error handling
   const login = async (email, password) => {
+    setLoading(true);
     setError(null);
+
     try {
-      await authService.login(email, password);
+      // Attempt login
+      const loginResult = await authService.login(email, password);
       
-      // Get user profile
+      // Add a small delay to prevent immediate profile request
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Fetch user profile after successful login
       const userProfile = await authService.getCurrentUser();
       setCurrentUser(userProfile);
       
+      // Determine user route based on role
+      const isAdmin = 
+        userProfile.role === 'ADMIN' || 
+        userProfile.is_admin === true || 
+        userProfile.role?.toUpperCase() === 'ADMIN';
+      
+      // Navigate to appropriate dashboard (if navigate is provided)
+      if (navigate) {
+        navigate(isAdmin ? '/admin/dashboard' : '/member/dashboard');
+      }
+      
       return { success: true };
     } catch (err) {
-      const errorMessage = err.error || 'Invalid credentials';
+      // Detailed error logging and handling
+      console.error('Login error details:', err);
+      
+      const errorMessage = 
+        err.response?.data?.error || 
+        err.message || 
+        'An unexpected error occurred during login';
+      
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+      
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Login with OTP (for new invites)
+  // Logout method
+  const logout = useCallback(() => {
+    authService.logout();
+    setCurrentUser(null);
+    if (navigate) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // OTP Login method
   const loginWithOTP = async (email, otp) => {
+    setLoading(true);
     setError(null);
+
     try {
       const result = await authService.loginWithOTP(email, otp);
       
       if (result.user_exists) {
-        // Get user profile
+        // Add a small delay to prevent immediate profile request
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Fetch user profile
         const userProfile = await authService.getCurrentUser();
         setCurrentUser(userProfile);
-        return { success: true, user_exists: true };
+        
+        // Determine routing
+        const isAdmin = 
+          userProfile.role === 'ADMIN' || 
+          userProfile.is_admin === true || 
+          userProfile.role?.toUpperCase() === 'ADMIN';
+        
+        // Navigate if possible
+        if (navigate) {
+          navigate(isAdmin ? '/admin/dashboard' : '/member/dashboard');
+        }
+        
+        return { success: true };
       } else {
-        // Registration needs to be completed
+        // Needs registration completion
         return {
           success: true,
-          user_exists: false,
-          invitation_id: result.invitation_id,
-          message: result.message
+          needsRegistration: true,
+          invitationId: result.invitation_id
         };
       }
     } catch (err) {
-      const errorMessage = err.error || 'Failed to login';
+      console.error('OTP Login error:', err);
+      
+      const errorMessage = 
+        err.response?.data?.error || 
+        err.message || 
+        'Failed to login with OTP';
+      
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+      
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Complete registration (after OTP verification)
-  const completeRegistration = async (userData) => {
+  // Complete registration method
+  const completeRegistration = async (registrationData) => {
+    setLoading(true);
     setError(null);
+
     try {
-      const result = await authService.completeRegistration(userData);
+      const result = await authService.completeRegistration(registrationData);
       
-      // Get user profile
+      // Add a small delay to prevent immediate profile request
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Fetch user profile
       const userProfile = await authService.getCurrentUser();
       setCurrentUser(userProfile);
       
-      return { success: true };
-    } catch (err) {
-      const errorMessage = err.error || 'Failed to complete registration';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Request password reset
-  const requestPasswordReset = async (email) => {
-    setError(null);
-    try {
-      const response = await authService.requestPasswordReset(email);
-      return { success: true, message: response.message };
-    } catch (err) {
-      const errorMessage = err.error || 'Failed to request password reset';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Verify OTP for password reset
-  const verifyOTP = async (email, otp) => {
-    setError(null);
-    try {
-      const result = await authService.verifyOTP(email, otp);
-      return { success: true, reset_token: result.reset_token };
-    } catch (err) {
-      const errorMessage = err.error || 'Invalid OTP';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Reset password
-  const resetPassword = async (newPassword, confirmPassword) => {
-    setError(null);
-    try {
-      await authService.resetPassword(newPassword, confirmPassword);
-      return { success: true };
-    } catch (err) {
-      const errorMessage = err.error || 'Failed to reset password';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Update user profile
-  const updateProfile = async (profileData) => {
-    setError(null);
-    try {
-      const response = await authService.updateUserProfile(profileData);
-      setCurrentUser(response);
-      return { success: true };
-    } catch (err) {
-      const errorMessage = err.error || 'Failed to update profile';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Upload document
-  const uploadDocument = async (documentData) => {
-    setError(null);
-    try {
-      const response = await authService.uploadDocument(documentData);
+      // Determine routing
+      const isAdmin = 
+        userProfile.role === 'ADMIN' || 
+        userProfile.is_admin === true || 
+        userProfile.role?.toUpperCase() === 'ADMIN';
       
-      // Refresh the user profile to get updated document status
-      const userProfile = await authService.getCurrentUser();
-      setCurrentUser(userProfile);
+      // Navigate if possible
+      if (navigate) {
+        navigate(isAdmin ? '/admin/dashboard' : '/member/dashboard');
+      }
       
-      return { success: true, document_id: response.document_id };
+      return { 
+        success: true,
+        message: result.message 
+      };
     } catch (err) {
-      const errorMessage = err.error || 'Failed to upload document';
+      console.error('Registration error:', err);
+      
+      const errorMessage = 
+        err.response?.data?.error || 
+        err.message || 
+        'Failed to complete registration';
+      
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+      
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Logout
-  const logout = () => {
-    authService.logout();
-    setCurrentUser(null);
-  };
-
-  const value = {
+  // Context value with all authentication methods
+  const contextValue = {
     currentUser,
     loading,
     error,
     login,
     loginWithOTP,
+    logout,
     completeRegistration,
-    requestPasswordReset,
-    verifyOTP,
-    resetPassword,
-    updateProfile,
-    uploadDocument,
-    logout
+    initializeUser,
+    setError,  // Allow manual error setting if needed
+    isAuthenticated: !!currentUser
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 // Custom hook to use the auth context

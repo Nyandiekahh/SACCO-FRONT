@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminRoute from './components/auth/AdminRoute';
@@ -50,62 +50,80 @@ const RootRedirect = () => {
     : <Navigate to="/member/dashboard" replace />;
 };
 
+// Wrapper to provide navigate to AuthProvider
+const AuthProviderWithNavigate = ({ children }) => {
+  const navigate = useNavigate();
+  return <AuthProvider navigate={navigate}>{children}</AuthProvider>;
+};
+
+// App with router outside AuthProvider, but routes inside AuthProviderWithNavigate
 const App = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/auth/otp-login" element={<OTPLogin />} />
-          <Route path="/auth/complete-registration" element={<CompleteRegistration />} />
-          <Route path="/auth/password-reset-request" element={<PasswordResetRequest />} />
-          <Route path="/auth/reset-password" element={<ResetPassword />} />
-          <Route path="/auth/verify-otp" element={<VerifyOTP />} />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/*" element={<AppWithAuth />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
-          {/* Root Redirect */}
-          <Route path="/" element={<RootRedirect />} />
+// This component contains all routes and is wrapped with AuthProvider that has navigate
+const AppWithAuth = () => {
+  const navigate = useNavigate();
+  
+  return (
+    <AuthProvider navigate={navigate}>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/auth/otp-login" element={<OTPLogin />} />
+        <Route path="/auth/complete-registration" element={<CompleteRegistration />} />
+        <Route path="/auth/password-reset-request" element={<PasswordResetRequest />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/verify-otp" element={<VerifyOTP />} />
 
-          {/* Member Routes */}
-          <Route 
-            path="/member/*" 
-            element={
-              <PrivateRoute allowedRoles={['MEMBER']}>
-                <Routes>
-                  <Route path="dashboard" element={<MemberDashboard />} />
-                  <Route path="contributions" element={<MemberContributions />} />
-                  <Route path="loan-application" element={<MemberLoanApplication />} />
-                  <Route path="profile" element={<MemberProfile />} />
-                  <Route path="share-capital" element={<MemberShareCapital />} />
-                  <Route path="documents" element={<MemberDocuments />} />
-                  <Route path="" element={<Navigate to="dashboard" replace />} />
-                </Routes>
-              </PrivateRoute>
-            } 
-          />
+        {/* Root Redirect */}
+        <Route path="/" element={<RootRedirect />} />
 
-          {/* Admin Routes */}
-          <Route 
-            path="/admin/*" 
-            element={
-              <AdminRoute>
-                <Routes>
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                  <Route path="members" element={<AdminMembers />} />
-                  <Route path="loans" element={<AdminLoans />} />
-                  <Route path="contributions" element={<AdminContributions />} />
-                  <Route path="reports" element={<AdminReports />} />
-                  <Route path="settings" element={<AdminSettings />} />
-                  <Route path="" element={<Navigate to="dashboard" replace />} />
-                </Routes>
-              </AdminRoute>
-            } 
-          />
+        {/* Member Routes */}
+        <Route 
+          path="/member/*" 
+          element={
+            <PrivateRoute allowedRoles={['MEMBER']}>
+              <Routes>
+                <Route path="dashboard" element={<MemberDashboard />} />
+                <Route path="contributions" element={<MemberContributions />} />
+                <Route path="loan-application" element={<MemberLoanApplication />} />
+                <Route path="profile" element={<MemberProfile />} />
+                <Route path="share-capital" element={<MemberShareCapital />} />
+                <Route path="documents" element={<MemberDocuments />} />
+                <Route path="" element={<Navigate to="dashboard" replace />} />
+              </Routes>
+            </PrivateRoute>
+          } 
+        />
 
-          {/* 404 Route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+        {/* Admin Routes */}
+        <Route 
+          path="/admin/*" 
+          element={
+            <AdminRoute>
+              <Routes>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="members" element={<AdminMembers />} />
+                <Route path="loans" element={<AdminLoans />} />
+                <Route path="contributions" element={<AdminContributions />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="" element={<Navigate to="dashboard" replace />} />
+              </Routes>
+            </AdminRoute>
+          } 
+        />
+
+        {/* 404 Route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </AuthProvider>
   );
 };

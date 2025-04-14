@@ -1,6 +1,10 @@
 // services/authService.js
 import api from './api';
 
+// Track the last profile request time to prevent rate limiting
+let lastProfileRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 1000; // 1 second minimum between profile requests
+
 const authService = {
   // Normal login with email/password (JWT token)
   login: async (email, password) => {
@@ -106,9 +110,25 @@ const authService = {
     }
   },
   
-  // Get current user profile
+  // Get current user profile with throttling to prevent 429 errors
   getCurrentUser: async () => {
-    return await api.get('/auth/profile/');
+    try {
+      const now = Date.now();
+      
+      // If we've made a request recently, add a delay
+      if (now - lastProfileRequestTime < MIN_REQUEST_INTERVAL) {
+        const waitTime = MIN_REQUEST_INTERVAL - (now - lastProfileRequestTime);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      // Update the last request time
+      lastProfileRequestTime = Date.now();
+      
+      return await api.get('/auth/profile/');
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw error;
+    }
   },
   
   // Update user profile
