@@ -50,19 +50,33 @@ const DashboardSummary = ({ memberStats, contributionStats, loanStats }) => {
             <p className="text-gray-500 text-sm">Total Contributions</p>
             <div className="flex items-end">
               <h3 className="text-3xl font-semibold text-gray-800 mr-2">
-                KES {contributionStats.totalContributions?.toLocaleString() || 0}
+                KES {(contributionStats.totalContributions || 0).toLocaleString()}
               </h3>
             </div>
           </div>
         </div>
-        <div className="mt-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-green-600 font-medium">
-              KES {contributionStats.thisMonthContributions?.toLocaleString() || 0} this month
-            </span>
-            <span className="text-gray-600">
-              {contributionStats.contributingMembersPercentage || 0}% member participation
-            </span>
+        <div className="mt-4">
+          <div className="flex flex-col space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Monthly Contributions:</span>
+              <span className="text-sm font-medium text-gray-800">
+                KES {(contributionStats.totalMonthlyContributions || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Share Capital:</span>
+              <span className="text-sm font-medium text-gray-800">
+                KES {(contributionStats.totalShareCapital || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="border-t border-gray-200 pt-2 mt-1">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">This Month:</span>
+                <span className="text-sm font-medium text-green-600">
+                  KES {(contributionStats.thisMonthContributions || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

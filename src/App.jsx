@@ -27,6 +27,7 @@ import AdminLoans from './pages/admin/Loans';
 import AdminContributions from './pages/admin/Contributions';
 import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
+import AdminTransactions from './pages/admin/Transactions';
 
 // Redirect component based on user role or authentication status
 const RootRedirect = () => {
@@ -116,6 +117,7 @@ const AppWithAuth = () => {
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="" element={<Navigate to="dashboard" replace />} />
+                <Route path="transactions" element={<AdminTransactions />} />
               </Routes>
             </AdminRoute>
           } 

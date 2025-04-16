@@ -2,7 +2,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const MembershipStats = ({ memberStats }) => {
+const MembershipStats = ({ memberStats = {} }) => {
+  // Ensure all required properties exist with defaults
+  const stats = {
+    activeMembers: memberStats.activeMembers || 0,
+    inactiveMembers: memberStats.inactiveMembers || 0,
+    onHoldMembers: memberStats.onHoldMembers || 0,
+    pendingVerification: memberStats.pendingVerification || 0,
+    growthRate: memberStats.growthRate || 0,
+    membershipTarget: memberStats.membershipTarget || 0,
+    completedShareCapital: memberStats.completedShareCapital || 0,
+    inProgressShareCapital: memberStats.inProgressShareCapital || 0,
+    notStartedShareCapital: memberStats.notStartedShareCapital || 0
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="px-6 py-4 bg-white border-b border-gray-200 flex justify-between items-center">
@@ -23,7 +36,7 @@ const MembershipStats = ({ memberStats }) => {
               </div>
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-500">Active Members</p>
-                <p className="text-lg font-semibold text-gray-900">{memberStats.activeMembers || 0}</p>
+                <p className="text-lg font-semibold text-gray-900">{stats.activeMembers}</p>
               </div>
             </div>
           </div>
@@ -38,7 +51,7 @@ const MembershipStats = ({ memberStats }) => {
               </div>
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-500">Inactive Members</p>
-                <p className="text-lg font-semibold text-gray-900">{memberStats.inactiveMembers || 0}</p>
+                <p className="text-lg font-semibold text-gray-900">{stats.inactiveMembers}</p>
               </div>
             </div>
           </div>
@@ -53,7 +66,7 @@ const MembershipStats = ({ memberStats }) => {
               </div>
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-500">On Hold</p>
-                <p className="text-lg font-semibold text-gray-900">{memberStats.onHoldMembers || 0}</p>
+                <p className="text-lg font-semibold text-gray-900">{stats.onHoldMembers}</p>
               </div>
             </div>
           </div>
@@ -68,7 +81,7 @@ const MembershipStats = ({ memberStats }) => {
               </div>
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-500">Pending Verification</p>
-                <p className="text-lg font-semibold text-gray-900">{memberStats.pendingVerification || 0}</p>
+                <p className="text-lg font-semibold text-gray-900">{stats.pendingVerification}</p>
               </div>
             </div>
           </div>
@@ -80,13 +93,13 @@ const MembershipStats = ({ memberStats }) => {
           <div className="relative pt-1">
             <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-100">
               <div
-                style={{ width: `${memberStats.growthRate || 0}%` }}
+                style={{ width: `${Math.min(stats.growthRate, 100)}%` }}
                 className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
               ></div>
             </div>
             <div className="flex justify-between text-xs text-gray-600">
-              <span>Growth Rate: {memberStats.growthRate || 0}%</span>
-              <span>Target: {memberStats.membershipTarget || 0}</span>
+              <span>Growth Rate: {stats.growthRate}%</span>
+              <span>Target: {stats.membershipTarget}</span>
             </div>
           </div>
         </div>
@@ -99,7 +112,7 @@ const MembershipStats = ({ memberStats }) => {
             <div className="flex-1 bg-gray-50 rounded-lg p-3">
               <div className="text-center">
                 <div className="text-xs text-gray-500">Completed</div>
-                <div className="text-lg font-bold text-green-600">{memberStats.completedShareCapital || 0}</div>
+                <div className="text-lg font-bold text-green-600">{stats.completedShareCapital}</div>
               </div>
             </div>
             
@@ -107,7 +120,7 @@ const MembershipStats = ({ memberStats }) => {
             <div className="flex-1 bg-gray-50 rounded-lg p-3">
               <div className="text-center">
                 <div className="text-xs text-gray-500">In Progress</div>
-                <div className="text-lg font-bold text-yellow-600">{memberStats.inProgressShareCapital || 0}</div>
+                <div className="text-lg font-bold text-yellow-600">{stats.inProgressShareCapital}</div>
               </div>
             </div>
             
@@ -115,7 +128,7 @@ const MembershipStats = ({ memberStats }) => {
             <div className="flex-1 bg-gray-50 rounded-lg p-3">
               <div className="text-center">
                 <div className="text-xs text-gray-500">Not Started</div>
-                <div className="text-lg font-bold text-red-600">{memberStats.notStartedShareCapital || 0}</div>
+                <div className="text-lg font-bold text-red-600">{stats.notStartedShareCapital}</div>
               </div>
             </div>
           </div>
