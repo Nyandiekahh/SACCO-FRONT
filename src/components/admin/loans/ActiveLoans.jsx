@@ -2,15 +2,27 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab = false, isSettledTab = false }) => {
+const ActiveLoans = ({ 
+  loans = [], 
+  onDisburseLoan, 
+  onAddRepayment, 
+  isOverdueTab = false, 
+  isSettledTab = false,
+  loading = false 
+}) => {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [showRepaymentModal, setShowRepaymentModal] = useState(false);
   const [repaymentAmount, setRepaymentAmount] = useState(0);
   const [repaymentReference, setRepaymentReference] = useState('');
+  const [transactionDate, setTransactionDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
 
   const handleAddRepaymentClick = (loan) => {
     setSelectedLoan(loan);
     setRepaymentAmount(loan.remaining_balance || 0);
+    setRepaymentReference('');
+    setTransactionDate(new Date().toISOString().split('T')[0]);
     setShowRepaymentModal(true);
   };
 
@@ -18,13 +30,24 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
     onAddRepayment(selectedLoan.id, {
       amount: repaymentAmount,
       reference_number: repaymentReference,
-      transaction_date: new Date().toISOString().split('T')[0]
+      transaction_date: transactionDate
     });
     setShowRepaymentModal(false);
     setSelectedLoan(null);
     setRepaymentAmount(0);
     setRepaymentReference('');
   };
+
+  if (loading) {
+    return (
+      <div className="py-4 flex justify-center">
+        <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    );
+  }
 
   if (!loans.length) {
     return (
@@ -74,12 +97,12 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                       <span className="text-blue-700 font-medium">
-                        {loan.member_details?.full_name ? loan.member_details.full_name.charAt(0).toUpperCase() : 'M'}
+                        {loan.member_name?.charAt(0).toUpperCase() || 'M'}
                       </span>
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">
-                        {loan.member_details?.full_name || 'Unknown Member'}
+                        {loan.member_name || loan.member_details?.full_name || 'Unknown Member'}
                       </div>
                       <div className="text-xs text-gray-500">
                         {loan.member_details?.membership_number || 'No ID'}
@@ -89,7 +112,7 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    KES {loan.amount?.toLocaleString() || 0}
+                    KES {parseFloat(loan.amount).toLocaleString() || 0}
                   </div>
                   <div className="text-xs text-gray-500">
                     {loan.term_months} months @ {loan.interest_rate}%
@@ -111,7 +134,7 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                           : 'Approved'}
                     </span>
                     
-                    {isOverdueTab && loan.isOverdue && (
+                    {loan.isOverdue && (
                       <span className="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                         {loan.daysOverdue} days overdue
                       </span>
@@ -131,7 +154,7 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                     <div>
                       <div className="flex items-center">
                         <div className="text-sm font-medium text-gray-900">
-                          KES {loan.remaining_balance?.toLocaleString() || 0}
+                          KES {parseFloat(loan.remaining_balance).toLocaleString() || 0}
                         </div>
                         <span className="ml-2 text-xs text-gray-500">
                           outstanding
@@ -140,11 +163,11 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                       <div className="w-full max-w-xs bg-gray-200 rounded-full h-1.5 mt-1">
                         <div 
                           className="bg-blue-600 h-1.5 rounded-full" 
-                          style={{ width: `${Math.min(100, Math.round((loan.total_repaid / loan.total_expected_repayment) * 100) || 0)}%` }}
+                          style={{ width: `${Math.min(100, Math.round((parseFloat(loan.total_repaid) / parseFloat(loan.total_expected_repayment)) * 100) || 0)}%` }}
                         ></div>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {Math.round((loan.total_repaid / loan.total_expected_repayment) * 100) || 0}% paid
+                        {Math.round((parseFloat(loan.total_repaid) / parseFloat(loan.total_expected_repayment)) * 100) || 0}% paid
                       </div>
                     </div>
                   ) : (
@@ -218,11 +241,11 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                       <p className="text-sm text-gray-500">
                         You are adding a repayment for a loan of{' '}
                         <span className="font-medium text-gray-900">
-                          KES {selectedLoan.amount?.toLocaleString() || 0}
+                          KES {parseFloat(selectedLoan.amount).toLocaleString() || 0}
                         </span>{' '}
                         for{' '}
                         <span className="font-medium text-gray-900">
-                          {selectedLoan.member_details?.full_name || 'Unknown Member'}
+                          {selectedLoan.member_name || selectedLoan.member_details?.full_name || 'Unknown Member'}
                         </span>.
                       </p>
                       
@@ -240,9 +263,10 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                             onChange={(e) => setRepaymentAmount(parseFloat(e.target.value) || 0)}
                             min="0"
                             max={selectedLoan.remaining_balance || 0}
+                            step="0.01"
                           />
                           <p className="mt-1 text-xs text-gray-500">
-                            Outstanding balance: KES {selectedLoan.remaining_balance?.toLocaleString() || 0}
+                            Outstanding balance: KES {parseFloat(selectedLoan.remaining_balance).toLocaleString() || 0}
                           </p>
                         </div>
                         
@@ -258,6 +282,21 @@ const ActiveLoans = ({ loans = [], onDisburseLoan, onAddRepayment, isOverdueTab 
                             value={repaymentReference}
                             onChange={(e) => setRepaymentReference(e.target.value)}
                             placeholder="e.g. MPESA transaction code"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="transaction-date" className="block text-sm font-medium text-gray-700">
+                            Transaction Date
+                          </label>
+                          <input
+                            type="date"
+                            name="transaction-date"
+                            id="transaction-date"
+                            className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                            value={transactionDate}
+                            onChange={(e) => setTransactionDate(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
                           />
                         </div>
                       </div>

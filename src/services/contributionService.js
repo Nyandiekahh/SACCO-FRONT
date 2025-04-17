@@ -9,18 +9,41 @@ const contributionService = {
    * @returns {Promise<Array>} - List of monthly contributions
    */
   getMonthlyContributions: async (filters = {}) => {
-    // Convert filters to query params
-    const queryParams = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== null && filters[key] !== undefined) {
-        queryParams.append(key, filters[key]);
+    try {
+      // Convert filters to query params
+      const queryParams = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== null && filters[key] !== undefined) {
+          queryParams.append(key, filters[key]);
+        }
+      });
+      
+      const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      // Use admin endpoint for all contributions
+      const response = await api.get(`/contributions/monthly/${queryString}`);
+      
+      // Handle different API response formats
+      let contributions = [];
+      if (response.data && Array.isArray(response.data)) {
+        contributions = response.data;
+      } else if (response.data && response.data.results) {
+        contributions = response.data.results;
+      } else if (Array.isArray(response)) {
+        contributions = response;
+      } else if (response.results) {
+        contributions = response.results;
       }
-    });
-    
-    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
-    // Use admin endpoint for all contributions
-    const response = await api.get(`/contributions/monthly/${queryString}`);
-    return response;
+      
+      // Log the first item for debugging
+      if (contributions.length > 0) {
+        console.log('Sample contribution data:', contributions[0]);
+      }
+      
+      return contributions;
+    } catch (error) {
+      console.error('Error fetching monthly contributions:', error);
+      return [];
+    }
   },
 
   /**
@@ -104,18 +127,36 @@ const contributionService = {
    * @returns {Promise<Array>} - List of share capital payments
    */
   getShareCapitalPayments: async (filters = {}) => {
-    // Convert filters to query params
-    const queryParams = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== null && filters[key] !== undefined) {
-        queryParams.append(key, filters[key]);
+    try {
+      // Convert filters to query params
+      const queryParams = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== null && filters[key] !== undefined) {
+          queryParams.append(key, filters[key]);
+        }
+      });
+      
+      const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      // Use admin endpoint for all share capital payments
+      const response = await api.get(`/contributions/share-capital/${queryString}`);
+      
+      // Handle different API response formats
+      let payments = [];
+      if (response.data && Array.isArray(response.data)) {
+        payments = response.data;
+      } else if (response.data && response.data.results) {
+        payments = response.data.results;
+      } else if (Array.isArray(response)) {
+        payments = response;
+      } else if (response.results) {
+        payments = response.results;
       }
-    });
-    
-    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
-    // Use admin endpoint for all share capital payments
-    const response = await api.get(`/contributions/share-capital/${queryString}`);
-    return response;
+      
+      return payments;
+    } catch (error) {
+      console.error('Error fetching share capital payments:', error);
+      return [];
+    }
   },
 
   /**
@@ -183,34 +224,10 @@ const contributionService = {
   getRecentContributions: async (limit = 5) => {
     try {
       // First get monthly contributions
-      const monthlyResponse = await contributionService.getMonthlyContributions();
-      let monthlyContributions = [];
-      
-      // Handle different API response formats
-      if (monthlyResponse.data && Array.isArray(monthlyResponse.data)) {
-        monthlyContributions = monthlyResponse.data;
-      } else if (monthlyResponse.data && monthlyResponse.data.results) {
-        monthlyContributions = monthlyResponse.data.results;
-      } else if (Array.isArray(monthlyResponse)) {
-        monthlyContributions = monthlyResponse;
-      } else if (monthlyResponse.results) {
-        monthlyContributions = monthlyResponse.results;
-      }
+      const monthlyContributions = await contributionService.getMonthlyContributions();
       
       // Get share capital payments
-      const shareCapitalResponse = await contributionService.getShareCapitalPayments();
-      let shareCapitalPayments = [];
-      
-      // Handle different API response formats
-      if (shareCapitalResponse.data && Array.isArray(shareCapitalResponse.data)) {
-        shareCapitalPayments = shareCapitalResponse.data;
-      } else if (shareCapitalResponse.data && shareCapitalResponse.data.results) {
-        shareCapitalPayments = shareCapitalResponse.data.results;
-      } else if (Array.isArray(shareCapitalResponse)) {
-        shareCapitalPayments = shareCapitalResponse;
-      } else if (shareCapitalResponse.results) {
-        shareCapitalPayments = shareCapitalResponse.results;
-      }
+      const shareCapitalPayments = await contributionService.getShareCapitalPayments();
       
       // Combine and format both types
       const allContributions = [
@@ -246,14 +263,10 @@ const contributionService = {
   getContributionStats: async () => {
     try {
       // Get monthly contributions
-      const monthlyResponse = await contributionService.getMonthlyContributions();
-      const monthlyContributions = Array.isArray(monthlyResponse.data) ? monthlyResponse.data : 
-                                  (monthlyResponse.results ? monthlyResponse.results : monthlyResponse);
+      const monthlyContributions = await contributionService.getMonthlyContributions();
       
       // Get share capital payments
-      const shareCapitalResponse = await contributionService.getShareCapitalPayments();
-      const shareCapitalPayments = Array.isArray(shareCapitalResponse.data) ? shareCapitalResponse.data : 
-                                  (shareCapitalResponse.results ? shareCapitalResponse.results : shareCapitalResponse);
+      const shareCapitalPayments = await contributionService.getShareCapitalPayments();
       
       // Get member stats
       const memberStats = await memberService.getMemberStats();
