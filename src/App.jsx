@@ -17,7 +17,7 @@ import MemberDashboard from './pages/member/Dashboard';
 import MemberContributions from './pages/member/Contributions';
 import MemberLoanApplication from './pages/member/LoanApplication';
 import MemberProfile from './pages/member/Profile';
-import MemberShareCapital from './pages/member/ShareCapital';
+// import MemberShareCapital from './pages/member/ShareCapital';
 import MemberDocuments from './pages/member/Documents';
 
 // Admin Pages
@@ -28,6 +28,9 @@ import AdminContributions from './pages/admin/Contributions';
 import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
 import AdminTransactions from './pages/admin/Transactions';
+
+// New Admin Component
+import MemberDetail from './pages/admin/members/MemberDetail';
 
 // Redirect component based on user role or authentication status
 const RootRedirect = () => {
@@ -96,7 +99,7 @@ const AppWithAuth = () => {
                 <Route path="contributions" element={<MemberContributions />} />
                 <Route path="loan-application" element={<MemberLoanApplication />} />
                 <Route path="profile" element={<MemberProfile />} />
-                <Route path="share-capital" element={<MemberShareCapital />} />
+                {/* <Route path="share-capital" element={<MemberShareCapital />} /> */}
                 <Route path="documents" element={<MemberDocuments />} />
                 <Route path="" element={<Navigate to="dashboard" replace />} />
               </Routes>
@@ -112,6 +115,7 @@ const AppWithAuth = () => {
               <Routes>
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="members" element={<AdminMembers />} />
+                <Route path="members/:memberId" element={<MemberDetail />} />
                 <Route path="loans" element={<AdminLoans />} />
                 <Route path="contributions" element={<AdminContributions />} />
                 <Route path="reports" element={<AdminReports />} />

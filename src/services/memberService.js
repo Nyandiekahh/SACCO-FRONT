@@ -27,8 +27,13 @@ const memberService = {
    * @returns {Promise<Object>} - Member details
    */
   getMemberById: async (id) => {
-    const response = await api.get(`/members/members/${id}/`);
-    return response;
+    try {
+      const response = await api.get(`/members/members/${id}/`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching member by ID:', error);
+      throw error;
+    }
   },
 
   /**
@@ -237,6 +242,22 @@ const memberService = {
         growthRate: 0,
         membershipTarget: 0
       };
+    }
+  },
+
+  /**
+   * Toggle member status (put on hold/activate)
+   * @param {string} id - Member ID
+   * @param {string} reason - Reason for putting on hold (optional)
+   * @returns {Promise<Object>} - Response
+   */
+  toggleMemberStatus: async (id, reason = '') => {
+    try {
+      const response = await api.post(`/auth/admin/toggle-user-status/${id}/`, { reason });
+      return response;
+    } catch (error) {
+      console.error('Error toggling member status:', error);
+      throw error;
     }
   }
 };

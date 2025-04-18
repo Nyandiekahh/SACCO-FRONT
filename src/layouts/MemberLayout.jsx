@@ -35,15 +35,15 @@ const MemberLayout = ({ children }) => {
       icon: User 
     },
     { 
-      name: 'Contributions', 
+      name: 'Investments', 
       href: '/member/contributions', 
       icon: CreditCard 
     },
-    { 
-      name: 'Share Capital', 
-      href: '/member/share-capital', 
-      icon: Wallet 
-    },
+    // { 
+    //   name: 'Share Capital', 
+    //   href: '/member/share-capital', 
+    //   icon: Wallet 
+    // },
     { 
       name: 'Loan Application', 
       href: '/member/loan-application', 

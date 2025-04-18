@@ -160,6 +160,51 @@ const authService = {
   // Refresh the token when it expires
   refreshToken: async () => {
     return await api.refreshToken();
+  },
+
+  /**
+   * Admin verifies a document
+   * @param {string} documentId - Document ID to verify
+   * @returns {Promise<Object>} - Response
+   */
+  verifyDocument: async (documentId) => {
+    try {
+      const response = await api.post(`/admin/verify-document/${documentId}/`);
+      return response;
+    } catch (error) {
+      console.error('Error verifying document:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Admin verifies a document by type
+   * @param {string} documentType - Document type to verify (e.g., 'ID_FRONT')
+   * @returns {Promise<Object>} - Response
+   */
+  verifyDocumentByType: async (documentType) => {
+    try {
+      const response = await api.post(`/admin/verify-document/type/${documentType}/`);
+      return response;
+    } catch (error) {
+      console.error('Error verifying document by type:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Admin reset password OTP for a user
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - Response
+   */
+  adminResetUserOTP: async (userId) => {
+    try {
+      const response = await api.post(`/auth/admin/reset-user-otp/${userId}/`);
+      return response;
+    } catch (error) {
+      console.error('Error resetting user OTP:', error);
+      throw error;
+    }
   }
 };
 
