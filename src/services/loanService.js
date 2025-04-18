@@ -93,12 +93,29 @@ const loanService = {
   },
 
   /**
+ * Fetch loan disbursement options 
+ * @param {string} id - Loan ID
+ * @returns {Promise<Object>} - Available payment methods
+ */
+getLoanDisbursementOptions: async (id) => {
+  try {
+    // Change to a POST request
+    const response = await api.post(`/loans/loans/${id}/disburse/`, {});
+    return response;
+  } catch (error) {
+    console.error("Error fetching loan disbursement options:", error);
+    throw error;
+  }
+},
+
+  /**
    * Disburse an approved loan
    * @param {string} id - Loan ID
+   * @param {Object} disbursementData - Disbursement data with payment method details
    * @returns {Promise<Object>} - Response with loan details
    */
-  disburseLoan: async (id) => {
-    const response = await api.post(`/loans/loans/${id}/disburse/`);
+  disburseLoan: async (id, disbursementData = {}) => {
+    const response = await api.post(`/loans/loans/${id}/disburse/`, disbursementData);
     return response;
   },
 

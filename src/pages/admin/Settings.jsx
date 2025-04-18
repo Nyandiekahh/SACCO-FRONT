@@ -1,75 +1,152 @@
-// pages/admin/Settings.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import AdminLayout from '../../layouts/AdminLayout';
 import { 
-  ArrowDownTrayIcon,
-  ArrowPathIcon,
-  UserIcon, 
-  BuildingOfficeIcon,
-  BanknotesIcon,
-  CogIcon, 
-  BellIcon, 
-  EnvelopeIcon,
-  PhoneIcon, 
-  LockClosedIcon, 
-  CheckIcon, 
-  NoSymbolIcon,
-  CheckBadgeIcon,
-  DocumentIcon, 
   PencilIcon, 
-  ViewListIcon, 
-  CurrencyDollarIcon 
-} from '@heroicons/react/24/solid';
+  DocumentIcon, 
+  CogIcon, 
+  CurrencyDollarIcon, 
+  BanknotesIcon,
+  UserGroupIcon, 
+  ChartPieIcon, 
+  BellIcon, 
+  PhoneIcon 
+} from '@heroicons/react/24/outline';
+import AdminLayout from '../../layouts/AdminLayout';
+import { toast } from 'react-toastify';
 
-// API base URL
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
-
-// Authentication token handling
-const getAuthToken = () => {
-  console.log('Available localStorage keys:', Object.keys(localStorage));
-  return localStorage.getItem('access_token');
-};
-
-// Axios instance with auth headers
+// Create an axios instance with base configuration
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: process.env.REACT_APP_API_BASE_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
-  },
+  }
 });
 
-// Add token to requests
+// Add interceptor for authentication
 api.interceptors.request.use(
   (config) => {
-    const token = getAuthToken();
+    const token = localStorage.getItem('access_token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
-    console.log('Full Request URL:', `${config.baseURL}${config.url}`);
-    console.log('Headers:', config.headers);
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Component for the Settings page
-const Settings = () => {
-  const navigate = useNavigate();
-  
-  // State for tab management
-  const [activeTab, setActiveTab] = useState(0);
-  
-  // State for loading and alerts
-  const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
-  
+// Utility to format currency
+const formatCurrency = (value) => 
+  new Intl.NumberFormat('en-KE', { 
+    style: 'currency', 
+    currency: 'KES' 
+  }).format(value || 0);
+
+// Settings Section Component
+const SettingsSection = ({ 
+  title, 
+  icon: Icon, 
+  children, 
+  onEdit, 
+  lastUpdated 
+}) => (
+  <div className="bg-white shadow-md rounded-lg p-6 mb-6">
+    <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center space-x-3">
+        <Icon className="h-6 w-6 text-blue-600" />
+        <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+      </div>
+      {onEdit && (
+        <button 
+          onClick={onEdit}
+          className="text-blue-600 hover:text-blue-800 transition-colors"
+        >
+          <PencilIcon className="h-5 w-5" />
+        </button>
+      )}
+    </div>
+    {children}
+    {lastUpdated && (
+      <div className="text-sm text-gray-500 mt-4">
+        Last updated: {new Date(lastUpdated).toLocaleString()}
+      </div>
+    )}
+  </div>
+);
+
+// Settings Detail Row
+const SettingDetailRow = ({ label, value, helpText }) => (
+  <div className="py-3 border-b border-gray-200 last:border-b-0">
+    <div className="flex justify-between items-start">
+      <div>
+        <p className="text-sm font-medium text-gray-700">{label}</p>
+        {helpText && (
+          <p className="text-xs text-gray-500 mt-1">{helpText}</p>
+        )}
+      </div>
+      <span className="text-sm text-gray-900 font-semibold">
+        {value}
+      </span>
+    </div>
+  </div>
+);
+
+// Input field component for modal
+const ModalInputField = ({ 
+  label, 
+  type = 'text', 
+  value, 
+  onChange, 
+  helpText,
+  min,
+  step,
+  checked,
+  options
+}) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      {label}
+      {helpText && <span className="block text-xs text-gray-500 mt-1">{helpText}</span>}
+    </label>
+    {type === 'checkbox' ? (
+      <label className="flex items-center">
+        <input 
+          type="checkbox" 
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="form-checkbox h-4 w-4 text-blue-600 rounded"
+        />
+        <span className="ml-2 text-sm text-gray-900">Enable</span>
+      </label>
+    ) : type === 'select' ? (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <input 
+        type={type}
+        value={value}
+        onChange={(e) => onChange(
+          type === 'number' ? parseFloat(e.target.value) : e.target.value
+        )}
+        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+        min={min}
+        step={step}
+      />
+    )}
+  </div>
+);
+
+const SettingsPage = () => {
   // State for SACCO settings
   const [saccoSettings, setSaccoSettings] = useState({
-    sacco_name: '',
     share_value: 0,
     minimum_monthly_contribution: 0,
     loan_interest_rate: 0,
@@ -79,1232 +156,581 @@ const Settings = () => {
     maximum_loan_term_months: 0,
     minimum_guarantors: 0,
     minimum_membership_period_months: 0,
-    dividend_calculation_method: 'BOTH',
-    enable_sms_notifications: true,
-    enable_email_notifications: true,
+    dividend_calculation_method: '',
+    enable_sms_notifications: false,
+    enable_email_notifications: false,
+    sacco_name: '',
     phone_number: '',
     email: '',
     postal_address: '',
-    physical_address: ''
+    physical_address: '',
+    updated_at: null,
+    dividend_calculation_methods: []
   });
-  
-  // State for users list
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  
-  // Dialog states
-  const [passwordResetDialog, setPasswordResetDialog] = useState(false);
-  const [statusDialog, setStatusDialog] = useState(false);
-  const [documentVerifyDialog, setDocumentVerifyDialog] = useState(false);
-  const [massEmailDialog, setMassEmailDialog] = useState(false);
-  
-  // Mass email state
-  const [massEmail, setMassEmail] = useState({
-    subject: '',
-    message: '',
-    type: 'general'
+
+  // State for modals and editing
+  const [editModal, setEditModal] = useState({
+    open: false,
+    section: null,
+    data: {}
   });
-  
-  // Status reason state
-  const [statusReason, setStatusReason] = useState('');
-  
-  // Selected document state
-  const [selectedDocument, setSelectedDocument] = useState(null);
-  
-  // Component did mount - fetch initial data
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch SACCO settings
+  // In your React component or api service
+// In your Settings component
+const fetchSaccoSettings = async () => {
+  try {
+    setIsLoading(true);
+    
+    // Fetch current settings directly using axios
+    const response = await axios.get('/api/settings/sacco/current/', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+      }
+    });
+    
+    setSaccoSettings(prev => ({
+      ...prev,
+      ...response.data,
+      dividend_calculation_methods: response.data.dividend_calculation_methods || [],
+      updated_at: response.data.updated_at
+    }));
+  } catch (err) {
+    // More specific error handling
+    if (err.response && err.response.status === 401) {
+      toast.error('Session expired. Please log in again.');
+      // Implement your login redirect logic
+    } else {
+      toast.error('Failed to fetch SACCO settings');
+    }
+    console.error('Settings fetch error:', err);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const saveSettings = async () => {
+  try {
+    const sectionMap = {
+      share_capital: ['share_value', 'minimum_monthly_contribution'],
+      loan_settings: [
+        'loan_interest_rate', 
+        'maximum_loan_multiplier', 
+        'loan_processing_fee_percentage', 
+        'loan_insurance_percentage', 
+        'maximum_loan_term_months', 
+        'minimum_guarantors'
+      ],
+      member_settings: ['minimum_membership_period_months'],
+      dividend_settings: ['dividend_calculation_method'],
+      notification_settings: [
+        'enable_sms_notifications', 
+        'enable_email_notifications'
+      ],
+      contact_info: [
+        'sacco_name', 
+        'phone_number', 
+        'email', 
+        'postal_address', 
+        'physical_address'
+      ]
+    };
+
+    // Prepare payload with only the relevant fields for the current section
+    const payload = sectionMap[editModal.section].reduce((acc, key) => {
+      acc[key] = editModal.data[key];
+      return acc;
+    }, {});
+
+    // Send update to backend
+    const response = await axios.patch('/api/settings/sacco/', payload, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+      }
+    });
+    
+    // Update local state
+    setSaccoSettings(prev => ({
+      ...prev,
+      ...payload,
+      updated_at: new Date().toISOString()
+    }));
+
+    // Close modal and show success
+    setEditModal({ open: false, section: null, data: {} });
+    toast.success('Settings updated successfully');
+  } catch (err) {
+    // More specific error handling
+    if (err.response && err.response.status === 401) {
+      toast.error('Session expired. Please log in again.');
+      // Implement your login redirect logic
+    } else {
+      toast.error('Failed to update settings');
+    }
+    console.error('Settings update error:', err);
+  }
+};
+
+  // Initial data fetch
   useEffect(() => {
     fetchSaccoSettings();
-    if (activeTab === 1) {
-      fetchUsers();
-    }
-  }, [activeTab]);
-  
-  // Handle tab change
-  const handleTabChange = (tabIndex) => {
-    setActiveTab(tabIndex);
-  };
-  
-  // Fetch SACCO settings
-  const fetchSaccoSettings = async () => {
-    setLoading(true);
-    try {
-      console.log('Full API URL:', `${API_BASE_URL}/api/settings/sacco/current/`);
-      const response = await api.get('/api/settings/sacco/current/');
-      console.log('Response:', response);
-      setSaccoSettings(response.data);
-    } catch (error) {
-      console.error('Full Error:', error.response ? error.response : error);
-      setAlert({
-        open: true,
-        message: 'Failed to load SACCO settings',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Fetch users list
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/api/settings/admin/users/');
-      setUsers(response.data);
-    } catch (error) {
-      setAlert({
-        open: true,
-        message: 'Failed to load users',
-        severity: 'error'
-      });
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Handle SACCO settings input change
-  const handleSettingsChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setSaccoSettings({
-      ...saccoSettings,
-      [name]: type === 'checkbox' ? checked : value
-    });
-  };
-  
-  // Save SACCO settings
-  const saveSaccoSettings = async () => {
-    setLoading(true);
-    try {
-      await api.post('/api/settings/sacco/', saccoSettings);
-      setAlert({
-        open: true,
-        message: 'SACCO settings updated successfully',
-        severity: 'success'
-      });
-    } catch (error) {
-      setAlert({
-        open: true,
-        message: 'Failed to update SACCO settings',
-        severity: 'error'
-      });
-      console.error('Error updating SACCO settings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Handle mass email input change
-  const handleMassEmailChange = (e) => {
-    const { name, value } = e.target;
-    setMassEmail({
-      ...massEmail,
-      [name]: value
-    });
-  };
-  
-  // Send mass email
-  const sendMassEmail = async () => {
-    setLoading(true);
-    try {
-      await api.post('/api/auth/admin/send-mass-email/', massEmail);
-      setAlert({
-        open: true,
-        message: 'Mass email sent successfully',
-        severity: 'success'
-      });
-      setMassEmailDialog(false);
-      // Reset form
-      setMassEmail({
-        subject: '',
-        message: '',
-        type: 'general'
-      });
-    } catch (error) {
-      setAlert({
-        open: true,
-        message: 'Failed to send mass email',
-        severity: 'error'
-      });
-      console.error('Error sending mass email:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Send password reset OTP to user
-  const sendPasswordResetOTP = async () => {
-    if (!selectedUser) return;
-    
-    setLoading(true);
-    try {
-      await api.post(`/api/settings/admin/${selectedUser.id}/reset-password/`);
-      setAlert({
-        open: true,
-        message: `Password reset OTP sent to ${selectedUser.email}`,
-        severity: 'success'
-      });
-      setPasswordResetDialog(false);
-    } catch (error) {
-      setAlert({
-        open: true,
-        message: 'Failed to send password reset OTP',
-        severity: 'error'
-      });
-      console.error('Error sending password reset OTP:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Toggle user status
-  const toggleUserStatus = async () => {
-    if (!selectedUser) return;
-    
-    setLoading(true);
-    try {
-      await api.post(`/api/settings/admin/${selectedUser.id}/toggle-status/`, {
-        reason: statusReason
-      });
-      
-      // Update user in the list
-      const updatedUsers = users.map(user => {
-        if (user.id === selectedUser.id) {
-          return {
-            ...user,
-            is_on_hold: !user.is_on_hold,
-            on_hold_reason: !user.is_on_hold ? statusReason : ''
-          };
-        }
-        return user;
-      });
-      
-      setUsers(updatedUsers);
-      setAlert({
-        open: true,
-        message: `User status updated successfully`,
-        severity: 'success'
-      });
-      setStatusDialog(false);
-      setStatusReason('');
-    } catch (error) {
-      setAlert({
-        open: true,
-        message: 'Failed to update user status',
-        severity: 'error'
-      });
-      console.error('Error updating user status:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Verify user document
-  const verifyDocument = async () => {
-    if (!selectedUser || !selectedDocument) return;
-    
-    setLoading(true);
-    try {
-      await api.post(`/api/settings/admin/${selectedUser.id}/verify-document/${selectedDocument}/`);
-      
-      // Update users list with new verification status
-      fetchUsers();
-      
-      setAlert({
-        open: true,
-        message: 'Document verified successfully',
-        severity: 'success'
-      });
-      setDocumentVerifyDialog(false);
-    } catch (error) {
-      setAlert({
-        open: true,
-        message: 'Failed to verify document',
-        severity: 'error'
-      });
-      console.error('Error verifying document:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Close alert
-  const handleCloseAlert = () => {
-    setAlert({ ...alert, open: false });
-  };
-  
-  // Open password reset dialog
-  const handleOpenPasswordReset = (user) => {
-    setSelectedUser(user);
-    setPasswordResetDialog(true);
-  };
-  
-  // Open status change dialog
-  const handleOpenStatusDialog = (user) => {
-    setSelectedUser(user);
-    setStatusReason('');
-    setStatusDialog(true);
-  };
-  
-  // Open document verification dialog
-  const handleOpenDocumentVerify = (user, documentType) => {
-    setSelectedUser(user);
-    setSelectedDocument(documentType);
-    setDocumentVerifyDialog(true);
-  };
-  
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES'
-    }).format(amount);
-  };
-  
-  // Render content based on active tab
-  const renderTabContent = () => {
-    switch(activeTab) {
-      case 0:
-        return renderGeneralSettings();
-      case 1:
-        return renderUserManagement();
-      case 2: 
-        return renderLoanSettings();
-      case 3:
-        return renderNotificationSettings();
-      case 4:
-        return renderContactSettings();
-      default:
-        return renderGeneralSettings();
-    }
-  };
-  
-  // General settings tab content
-  const renderGeneralSettings = () => {
+  }, []);
+
+  // If loading, show a loading indicator
+  if (isLoading) {
     return (
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Basic SACCO Settings
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              SACCO Name
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              type="text"
-              name="sacco_name"
-              value={saccoSettings.sacco_name}
-              onChange={handleSettingsChange}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Share Value
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">KES</span>
-              </div>
-              <input
-                className="w-full border border-gray-300 rounded-md pl-12 p-2 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="share_value"
-                value={saccoSettings.share_value}
-                onChange={handleSettingsChange}
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Monthly Contribution
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">KES</span>
-              </div>
-              <input
-                className="w-full border border-gray-300 rounded-md pl-12 p-2 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="minimum_monthly_contribution"
-                value={saccoSettings.minimum_monthly_contribution}
-                onChange={handleSettingsChange}
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dividend Calculation Method
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              name="dividend_calculation_method"
-              value={saccoSettings.dividend_calculation_method}
-              onChange={handleSettingsChange}
-            >
-              <option value="SHARES">Based on Shares</option>
-              <option value="DEPOSITS">Based on Deposits</option>
-              <option value="BOTH">Based on Both</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Membership Period (months)
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <input
-                className="w-full border border-gray-300 rounded-md p-2 pr-12 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="minimum_membership_period_months"
-                value={saccoSettings.minimum_membership_period_months}
-                onChange={handleSettingsChange}
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">months</span>
-              </div>
-            </div>
-          </div>
+      <AdminLayout>
+        <div className="flex justify-center items-center h-full">
+          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-blue-500"></div>
         </div>
-        
-        <div className="mt-6 flex justify-end">
-          <button 
-            className="flex items-center px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            onClick={fetchSaccoSettings}
-          >
-            <ArrowPathIcon className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
-          <button 
-            className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-            onClick={saveSaccoSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
-            )}
-            {loading ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
-      </div>
+      </AdminLayout>
     );
-  };
-  
-  // User management tab content
-  const renderUserManagement = () => {
-    return (
-      <div>
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">
-              User Management
-            </h2>
-            <div>
-              <button 
-                className="flex items-center px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={fetchUsers}
-              >
-                <ArrowPathIcon className="w-4 h-4 mr-2" />
-                Refresh
-              </button>
-              <button 
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                onClick={() => setMassEmailDialog(true)}
-              >
-                <EnvelopeIcon className="w-4 h-4 mr-2" />
-                Send Mass Email
-              </button>
-            </div>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Member Number
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Verification
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                      {loading ? (
-                        <div className="flex justify-center">
-                          <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                        </div>
-                      ) : (
-                        'No users found'
-                      )}
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((user) => (
-                    <tr key={user.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {user.membership_number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.full_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {user.is_on_hold ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <NoSymbolIcon className="w-3 h-3 mr-1" />
-                            On Hold
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckIcon className="w-3 h-3 mr-1" />
-                            Active
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {user.is_verified ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckBadgeIcon className="w-3 h-3 mr-1" />
-                            Verified
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Unverified
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex space-x-2">
-                          <button 
-                            className="text-gray-600 hover:text-gray-900"
-                            title="Reset Password"
-                            onClick={() => handleOpenPasswordReset(user)}
-                          >
-                            <LockClosedIcon className="w-5 h-5" />
-                          </button>
-                          
-                          <button 
-                            className={user.is_on_hold ? "text-green-600 hover:text-green-900" : "text-red-600 hover:text-red-900"}
-                            title={user.is_on_hold ? "Activate User" : "Deactivate User"}
-                            onClick={() => handleOpenStatusDialog(user)}
-                          >
-                            {user.is_on_hold ? <CheckIcon className="w-5 h-5" /> : <NoSymbolIcon className="w-5 h-5" />}
-                          </button>
-                          
-                          {!user.is_verified && (
-                            <button 
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Verify Documents"
-                              onClick={() => handleOpenDocumentVerify(user, user.verification_status?.id_front ? null : 'ID_FRONT')}
-                            >
-                              <CheckBadgeIcon className="w-5 h-5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
-  // Loan settings tab content
-  const renderLoanSettings = () => {
-    return (
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Loan Settings
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Loan Interest Rate
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <input
-                className="w-full border border-gray-300 rounded-md p-2 pr-12 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="loan_interest_rate"
-                value={saccoSettings.loan_interest_rate}
-                onChange={handleSettingsChange}
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">%</span>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Maximum Loan Multiplier
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              type="number"
-              name="maximum_loan_multiplier"
-              value={saccoSettings.maximum_loan_multiplier}
-              onChange={handleSettingsChange}
-            />
-            <p className="mt-1 text-sm text-gray-500">Multiple of member's shares</p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Loan Processing Fee
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <input
-                className="w-full border border-gray-300 rounded-md p-2 pr-12 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="loan_processing_fee_percentage"
-                value={saccoSettings.loan_processing_fee_percentage}
-                onChange={handleSettingsChange}
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">%</span>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Loan Insurance Fee
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <input
-                className="w-full border border-gray-300 rounded-md p-2 pr-12 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="loan_insurance_percentage"
-                value={saccoSettings.loan_insurance_percentage}
-                onChange={handleSettingsChange}
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">%</span>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Maximum Loan Term
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <input
-                className="w-full border border-gray-300 rounded-md p-2 pr-16 focus:ring-blue-500 focus:border-blue-500"
-                type="number"
-                name="maximum_loan_term_months"
-                value={saccoSettings.maximum_loan_term_months}
-                onChange={handleSettingsChange}
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">months</span>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Guarantors Required
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              type="number"
-              name="minimum_guarantors"
-              value={saccoSettings.minimum_guarantors}
-              onChange={handleSettingsChange}
-            />
-          </div>
-        </div>
-        
-        <div className="mt-6 flex justify-end">
-          <button 
-            className="flex items-center px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            onClick={fetchSaccoSettings}
-          >
-            <ArrowPathIcon className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
-          <button 
-            className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-            onClick={saveSaccoSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
-            )}
-            {loading ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-  // Notification settings tab content
-  const renderNotificationSettings = () => {
-    return (
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Notification Settings
-        </h2>
-        
-        <div className="grid grid-cols-1 gap-6">
-          <div className="flex items-center">
-            <input
-              id="enable_email_notifications"
-              name="enable_email_notifications"
-              type="checkbox"
-              checked={saccoSettings.enable_email_notifications}
-              onChange={handleSettingsChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="enable_email_notifications" className="ml-2 block text-sm text-gray-900">
-              Enable Email Notifications
-            </label>
-          </div>
-          
-          <div className="flex items-center">
-            <input
-              id="enable_sms_notifications"
-              name="enable_sms_notifications"
-              type="checkbox"
-              checked={saccoSettings.enable_sms_notifications}
-              onChange={handleSettingsChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="enable_sms_notifications" className="ml-2 block text-sm text-gray-900">
-              Enable SMS Notifications
-            </label>
-          </div>
-          
-          <div className="mt-4">
-            <div className="border border-gray-200 rounded-md">
-              <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
-                <h3 className="text-lg font-medium text-gray-900">Notification Templates</h3>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-sm text-gray-600">
-                  Notification templates can be customized by editing the HTML templates in the 
-                  templates/emails directory of the project.
-                </p>
-                <div className="mt-3">
-                  <h4 className="text-sm font-medium text-gray-900">Available Templates:</h4>
-                  <ul className="mt-2 list-disc pl-5 text-sm text-gray-600">
-                    <li>Password Reset</li>
-                    <li>Loan Notification</li>
-                    <li>Contribution Reminder</li>
-                    <li>Invitation</li>
-                    <li>Mass Email</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-6 flex justify-end">
-          <button 
-            className="flex items-center px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            onClick={fetchSaccoSettings}
-          >
-            <ArrowPathIcon className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
-          <button 
-            className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-            onClick={saveSaccoSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
-            )}
-            {loading ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-  
-  // Contact settings tab content
-  const renderContactSettings = () => {
-    return (
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Contact Information
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone Number
-            </label>
-            <div className="relative mt-1 rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <PhoneIcon className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                name="phone_number"
-                value={saccoSettings.phone_number}
-                onChange={handleSettingsChange}
-                className="w-full border border-gray-300 rounded-md pl-10 p-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="+254700000000"
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <div className="relative mt-1 rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="email"
-                name="email"
-                value={saccoSettings.email}
-                onChange={handleSettingsChange}
-                className="w-full border border-gray-300 rounded-md pl-10 p-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="info@sacco.com"
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Postal Address
-            </label>
-            <input
-              type="text"
-              name="postal_address"
-              value={saccoSettings.postal_address}
-              onChange={handleSettingsChange}
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="P.O. Box 12345, Nairobi"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Physical Address
-            </label>
-            <input
-              type="text"
-              name="physical_address"
-              value={saccoSettings.physical_address}
-              onChange={handleSettingsChange}
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="123 Main Street, Nairobi"
-            />
-          </div>
-        </div>
-        
-        <div className="mt-6 flex justify-end">
-          <button 
-            className="flex items-center px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            onClick={fetchSaccoSettings}
-          >
-            <ArrowPathIcon className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
-          <button 
-            className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-            onClick={saveSaccoSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
-            )}
-            {loading ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-  
+  }
+
+  // Render different setting sections
   return (
     <AdminLayout>
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center">
-          <CogIcon className="w-6 h-6 mr-2" />
-          SACCO Settings
-        </h1>
-        <p className="text-gray-600">
-          Manage system-wide settings and configurations for your SACCO.
-        </p>
-      </div>
-      
-      <div className="bg-white shadow mb-6 rounded-lg overflow-hidden">
-        <div className="flex overflow-x-auto">
-          <button
-            className={`px-4 py-3 text-sm font-medium ${activeTab === 0 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabChange(0)}
-          >
-            <div className="flex items-center">
-              <BuildingOfficeIcon className="w-5 h-5 mr-2" />
-              General
-            </div>
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium ${activeTab === 1 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabChange(1)}
-          >
-            <div className="flex items-center">
-              <UserIcon className="w-5 h-5 mr-2" />
-              User Management
-            </div>
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium ${activeTab === 2 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabChange(2)}
-          >
-            <div className="flex items-center">
-              <BanknotesIcon className="w-5 h-5 mr-2" />
-              Loan Settings
-            </div>
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium ${activeTab === 3 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabChange(3)}
-          >
-            <div className="flex items-center">
-              <BellIcon className="w-5 h-5 mr-2" />
-              Notifications
-            </div>
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium ${activeTab === 4 ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabChange(4)}
-          >
-            <div className="flex items-center">
-              <PhoneIcon className="w-5 h-5 mr-2" />
-              Contact Information
-            </div>
-          </button>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold flex items-center text-gray-800">
+            <CogIcon className="h-8 w-8 mr-3 text-blue-600" />
+            SACCO Settings
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Manage and configure your SACCO's global settings
+          </p>
         </div>
-      </div>
-      
-      {renderTabContent()}
-      
-      {/* Password Reset Dialog */}
-      {passwordResetDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-medium">Reset User Password</h3>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600">
-                This will send a password reset OTP to {selectedUser?.email}. The user will be able to use this OTP to set a new password.
-              </p>
-            </div>
-            <div className="px-6 py-3 bg-gray-50 flex justify-end space-x-3">
-              <button 
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setPasswordResetDialog(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className={`px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-                onClick={sendPasswordResetOTP}
-                disabled={loading}
-              >
-                {loading ? (
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : 'Send OTP'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* User Status Dialog */}
-      {statusDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-medium">
-                {selectedUser?.is_on_hold ? 'Activate User' : 'Deactivate User'}
-              </h3>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600 mb-4">
-                {selectedUser?.is_on_hold 
-                  ? `This will activate the account for ${selectedUser?.email}.` 
-                  : `This will put the account for ${selectedUser?.email} on hold. They will not be able to login or perform transactions until the account is activated again.`
-                }
-              </p>
+
+        {/* Share Capital Settings */}
+        <SettingsSection 
+          title="Share Capital Settings" 
+          icon={CurrencyDollarIcon}
+          lastUpdated={saccoSettings.updated_at}
+          onEdit={() => setEditModal({
+            open: true,
+            section: 'share_capital',
+            data: {
+              share_value: saccoSettings.share_value,
+              minimum_monthly_contribution: saccoSettings.minimum_monthly_contribution
+            }
+          })}
+        >
+          <SettingDetailRow 
+            label="Share Value" 
+            value={formatCurrency(saccoSettings.share_value)}
+            helpText="Value of a single share"
+          />
+          <SettingDetailRow 
+            label="Minimum Monthly Contribution" 
+            value={formatCurrency(saccoSettings.minimum_monthly_contribution)}
+            helpText="Minimum required monthly contribution"
+          />
+        </SettingsSection>
+
+        {/* Loan Settings */}
+        <SettingsSection 
+          title="Loan Settings" 
+          icon={BanknotesIcon}
+          lastUpdated={saccoSettings.updated_at}
+          onEdit={() => setEditModal({
+            open: true,
+            section: 'loan_settings',
+            data: {
+              loan_interest_rate: saccoSettings.loan_interest_rate,
+              maximum_loan_multiplier: saccoSettings.maximum_loan_multiplier,
+              loan_processing_fee_percentage: saccoSettings.loan_processing_fee_percentage,
+              loan_insurance_percentage: saccoSettings.loan_insurance_percentage,
+              maximum_loan_term_months: saccoSettings.maximum_loan_term_months,
+              minimum_guarantors: saccoSettings.minimum_guarantors
+            }
+          })}
+        >
+          <SettingDetailRow 
+            label="Loan Interest Rate" 
+            value={`${saccoSettings.loan_interest_rate}%`}
+            helpText="Annual interest rate for loans"
+          />
+          <SettingDetailRow 
+            label="Maximum Loan Multiplier" 
+            value={`${saccoSettings.maximum_loan_multiplier}x`}
+            helpText="Maximum loan amount as a multiple of shares"
+          />
+          <SettingDetailRow 
+            label="Loan Processing Fee" 
+            value={`${saccoSettings.loan_processing_fee_percentage}%`}
+            helpText="Loan processing fee percentage"
+          />
+          <SettingDetailRow 
+            label="Loan Insurance Fee" 
+            value={`${saccoSettings.loan_insurance_percentage}%`}
+            helpText="Loan insurance fee percentage"
+          />
+          <SettingDetailRow 
+            label="Maximum Loan Term" 
+            value={`${saccoSettings.maximum_loan_term_months} months`}
+            helpText="Maximum loan repayment period"
+          />
+          <SettingDetailRow 
+            label="Minimum Guarantors" 
+            value={saccoSettings.minimum_guarantors}
+            helpText="Minimum number of guarantors required"
+          />
+        </SettingsSection>
+
+        {/* Member Settings */}
+        <SettingsSection 
+          title="Member Settings" 
+          icon={UserGroupIcon}
+          lastUpdated={saccoSettings.updated_at}
+          onEdit={() => setEditModal({
+            open: true,
+            section: 'member_settings',
+            data: {
+              minimum_membership_period_months: saccoSettings.minimum_membership_period_months
+            }
+          })}
+        >
+          <SettingDetailRow 
+            label="Minimum Membership Period" 
+            value={`${saccoSettings.minimum_membership_period_months} months`}
+            helpText="Minimum period of membership before loan eligibility"
+          />
+        </SettingsSection>
+
+        {/* Dividend Settings */}
+        <SettingsSection 
+          title="Dividend Settings" 
+          icon={ChartPieIcon}
+          lastUpdated={saccoSettings.updated_at}
+          onEdit={() => setEditModal({
+            open: true,
+            section: 'dividend_settings',
+            data: {
+              dividend_calculation_method: saccoSettings.dividend_calculation_method
+            }
+          })}
+        >
+          <SettingDetailRow 
+            label="Dividend Calculation Method" 
+            value={saccoSettings.dividend_calculation_method}
+            helpText="Method for calculating dividends"
+          />
+        </SettingsSection>
+
+        {/* Notification Settings */}
+        <SettingsSection 
+          title="Notification Settings" 
+          icon={BellIcon}
+          lastUpdated={saccoSettings.updated_at}
+          onEdit={() => setEditModal({
+            open: true,
+            section: 'notification_settings',
+            data: {
+              enable_sms_notifications: saccoSettings.enable_sms_notifications,
+              enable_email_notifications: saccoSettings.enable_email_notifications
+            }
+          })}
+        >
+          <SettingDetailRow 
+            label="SMS Notifications" 
+            value={saccoSettings.enable_sms_notifications ? 'Enabled' : 'Disabled'}
+            helpText="Enable SMS notifications for transactions"
+          />
+          <SettingDetailRow 
+            label="Email Notifications" 
+            value={saccoSettings.enable_email_notifications ? 'Enabled' : 'Disabled'}
+            helpText="Enable email notifications for transactions"
+          />
+        </SettingsSection>
+
+        {/* Contact Information */}
+        <SettingsSection 
+          title="Contact Information" 
+          icon={PhoneIcon}
+          lastUpdated={saccoSettings.updated_at}
+          onEdit={() => setEditModal({
+            open: true,
+            section: 'contact_info',
+            data: {
+              sacco_name: saccoSettings.sacco_name,
+              phone_number: saccoSettings.phone_number,
+              email: saccoSettings.email,
+              postal_address: saccoSettings.postal_address,
+              physical_address: saccoSettings.physical_address
+            }
+          })}
+        >
+          <SettingDetailRow 
+            label="SACCO Name" 
+            value={saccoSettings.sacco_name}
+            helpText="Official SACCO name"
+          />
+          <SettingDetailRow 
+            label="Phone Number" 
+            value={saccoSettings.phone_number}
+            helpText="SACCO contact phone number"
+          />
+          <SettingDetailRow 
+            label="Email" 
+            value={saccoSettings.email}
+            helpText="SACCO contact email"
+          />
+          <SettingDetailRow 
+            label="Postal Address" 
+            value={saccoSettings.postal_address}
+            helpText="SACCO postal address"
+          />
+          <SettingDetailRow 
+            label="Physical Address" 
+            value={saccoSettings.physical_address}
+            helpText="SACCO physical address"
+          />
+        </SettingsSection>
+
+        {/* Edit Modal */}
+        {editModal.open && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg w-full max-w-md p-6">
+              <h2 className="text-xl font-semibold mb-4">
+                Edit {editModal.section.replace('_', ' ').toUpperCase()}
+              </h2>
               
-              {!selectedUser?.is_on_hold && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reason for deactivation
-                  </label>
-                  <textarea
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={statusReason}
-                    onChange={(e) => setStatusReason(e.target.value)}
-                    rows={3}
-                    required
+              {/* Dynamically render input fields based on section */}
+              {editModal.section === 'share_capital' && (
+                <>
+                  <ModalInputField 
+                    label="Share Value" 
+                    type="number"
+                    value={editModal.data.share_value}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, share_value: value }
+                    }))}
+                    helpText="Value of a single share"
+                    min={0}
+                    step={0.01}
                   />
-                </div>
+                  <ModalInputField 
+                    label="Minimum Monthly Contribution" 
+                    type="number"
+                    value={editModal.data.minimum_monthly_contribution}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, minimum_monthly_contribution: value }
+                    }))}
+                    helpText="Minimum required monthly contribution"
+                    min={0}
+                    step={0.01}
+                  />
+                </>
               )}
-            </div>
-            <div className="px-6 py-3 bg-gray-50 flex justify-end space-x-3">
-              <button 
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setStatusDialog(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
-                  selectedUser?.is_on_hold 
-                    ? loading ? 'bg-green-400' : 'bg-green-600 hover:bg-green-700' 
-                    : loading ? 'bg-red-400' : 'bg-red-600 hover:bg-red-700'
-                }`}
-                onClick={toggleUserStatus}
-                disabled={loading || (!selectedUser?.is_on_hold && !statusReason)}
-              >
-                {loading ? (
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (selectedUser?.is_on_hold ? 'Activate User' : 'Deactivate User')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Document Verification Dialog */}
-      {documentVerifyDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-medium">Verify User Document</h3>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600">
-                This will mark the document as verified for {selectedUser?.email}.
-                {!selectedUser?.verification_status?.id_front && ' ID Front needs verification.'}
-                {!selectedUser?.verification_status?.id_back && ' ID Back needs verification.'}
-                {!selectedUser?.verification_status?.passport && ' Passport photo needs verification.'}
-              </p>
-            </div>
-            <div className="px-6 py-3 bg-gray-50 flex justify-end space-x-3">
-              <button 
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setDocumentVerifyDialog(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className={`px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-                onClick={verifyDocument}
-                disabled={loading}
-              >
-                {loading ? (
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : 'Verify Document'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Mass Email Dialog */}
-      {massEmailDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full">
-            <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-medium">Send Mass Email to Members</h3>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600 mb-4">
-                This will send an email to all active members of the SACCO.
-              </p>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Type
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    name="type"
-                    value={massEmail.type}
-                    onChange={handleMassEmailChange}
-                  >
-                    <option value="general">General Announcement</option>
-                    <option value="contribution_reminder">Contribution Reminder</option>
-                    <option value="dividend_announcement">Dividend Announcement</option>
-                    <option value="meeting_notice">Meeting Notice</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Subject
-                  </label>
-                  <input
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+
+              {editModal.section === 'loan_settings' && (
+                <>
+                  <ModalInputField 
+                    label="Loan Interest Rate" 
+                    type="number"
+                    value={editModal.data.loan_interest_rate}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, loan_interest_rate: value }
+                    }))}
+                    helpText="Annual interest rate for loans"
+                    min={0}
+                    step={0.01}
+                  />
+                  <ModalInputField 
+                    label="Maximum Loan Multiplier" 
+                    type="number"
+                    value={editModal.data.maximum_loan_multiplier}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, maximum_loan_multiplier: value }
+                    }))}
+                    helpText="Maximum loan amount as a multiple of shares"
+                    min={0}
+                    step={0.1}
+                  />
+                  <ModalInputField 
+                    label="Loan Processing Fee" 
+                    type="number"
+                    value={editModal.data.loan_processing_fee_percentage}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, loan_processing_fee_percentage: value }
+                    }))}
+                    helpText="Loan processing fee percentage"
+                    min={0}
+                    step={0.01}
+                  />
+                  <ModalInputField 
+                    label="Loan Insurance Fee" 
+                    type="number"
+                    value={editModal.data.loan_insurance_percentage}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, loan_insurance_percentage: value }
+                    }))}
+                    helpText="Loan insurance fee percentage"
+                    min={0}
+                    step={0.01}
+                  />
+                  <ModalInputField 
+                    label="Maximum Loan Term (Months)" 
+                    type="number"
+                    value={editModal.data.maximum_loan_term_months}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, maximum_loan_term_months: value }
+                    }))}
+                    helpText="Maximum loan repayment period"
+                    min={0}
+                  />
+                  <ModalInputField 
+                    label="Minimum Guarantors" 
+                    type="number"
+                    value={editModal.data.minimum_guarantors}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, minimum_guarantors: value }
+                    }))}
+                    helpText="Minimum number of guarantors required"
+                    min={0}
+                  />
+                </>
+              )}
+
+              {editModal.section === 'member_settings' && (
+                <ModalInputField 
+                  label="Minimum Membership Period (Months)" 
+                  type="number"
+                  value={editModal.data.minimum_membership_period_months}
+                  onChange={(value) => setEditModal(prev => ({
+                    ...prev,
+                    data: { ...prev.data, minimum_membership_period_months: value }
+                  }))}
+                  helpText="Minimum period of membership before loan eligibility"
+                  min={0}
+                />
+              )}
+
+{editModal.section === 'dividend_settings' && (
+  <ModalInputField 
+    label="Dividend Calculation Method" 
+    type="select"
+    value={editModal.data.dividend_calculation_method}
+    onChange={(value) => setEditModal(prev => ({
+      ...prev,
+      data: { ...prev.data, dividend_calculation_method: value }
+    }))}
+    helpText="Method for calculating dividends"
+    options={saccoSettings.dividend_calculation_methods}
+  />
+)}
+
+              {editModal.section === 'notification_settings' && (
+                <>
+                  <ModalInputField 
+                    label="SMS Notifications" 
+                    type="checkbox"
+                    checked={editModal.data.enable_sms_notifications}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, enable_sms_notifications: value }
+                    }))}
+                    helpText="Enable SMS notifications for transactions"
+                  />
+                  <ModalInputField 
+                    label="Email Notifications" 
+                    type="checkbox"
+                    checked={editModal.data.enable_email_notifications}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, enable_email_notifications: value }
+                    }))}
+                    helpText="Enable email notifications for transactions"
+                  />
+                </>
+              )}
+
+              {editModal.section === 'contact_info' && (
+                <>
+                  <ModalInputField 
+                    label="SACCO Name" 
                     type="text"
-                    name="subject"
-                    value={massEmail.subject}
-                    onChange={handleMassEmailChange}
-                    required
+                    value={editModal.data.sacco_name}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, sacco_name: value }
+                    }))}
+                    helpText="Official SACCO name"
                   />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Message
-                  </label>
-                  <textarea
-                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    name="message"
-                    value={massEmail.message}
-                    onChange={handleMassEmailChange}
-                    rows={8}
-                    required
+                  <ModalInputField 
+                    label="Phone Number" 
+                    type="text"
+                    value={editModal.data.phone_number}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, phone_number: value }
+                    }))}
+                    helpText="SACCO contact phone number"
                   />
-                </div>
+                  <ModalInputField 
+                    label="Email" 
+                    type="email"
+                    value={editModal.data.email}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, email: value }
+                    }))}
+                    helpText="SACCO contact email"
+                  />
+                  <ModalInputField 
+                    label="Postal Address" 
+                    type="text"
+                    value={editModal.data.postal_address}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, postal_address: value }
+                    }))}
+                    helpText="SACCO postal address"
+                  />
+                  <ModalInputField 
+                    label="Physical Address" 
+                    type="text"
+                    value={editModal.data.physical_address}
+                    onChange={(value) => setEditModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, physical_address: value }
+                    }))}
+                    helpText="SACCO physical address"
+                  />
+                </>
+              )}
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button 
+                  onClick={() => setEditModal({ open: false, section: null, data: {} })}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={saveSettings}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
               </div>
             </div>
-            <div className="px-6 py-3 bg-gray-50 flex justify-end space-x-3">
-              <button 
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setMassEmailDialog(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className={`px-4 py-2 text-sm font-medium text-white rounded-md ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-                onClick={sendMassEmail}
-                disabled={loading || !massEmail.subject || !massEmail.message}
-              >
-                {loading ? (
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : 'Send Email'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-      
-      {/* Alert Toast */}
-      {alert.open && (
-        <div className={`fixed bottom-4 right-4 z-50 rounded-md p-4 ${
-          alert.severity === 'success' ? 'bg-green-50 border border-green-200' : 
-          alert.severity === 'error' ? 'bg-red-50 border border-red-200' : 
-          'bg-blue-50 border border-blue-200'
-        }`}>
-          <div className="flex">
-            <div className="flex-shrink-0">
-              {alert.severity === 'success' && (
-                <CheckIcon className="h-5 w-5 text-green-400" />
-              )}
-              {alert.severity === 'error' && (
-                <NoSymbolIcon className="h-5 w-5 text-red-400" />
-              )}
-              {alert.severity === 'info' && (
-                <BellIcon className="h-5 w-5 text-blue-400" />
-              )}
-            </div>
-            <div className="ml-3">
-              <p className={`text-sm font-medium ${
-                alert.severity === 'success' ? 'text-green-800' : 
-                alert.severity === 'error' ? 'text-red-800' : 
-                'text-blue-800'
-              }`}>
-                {alert.message}
-              </p>
-            </div>
-            <div className="ml-auto pl-3">
-              <button
-                onClick={handleCloseAlert}
-                className={`inline-flex rounded-md p-1.5 ${
-                  alert.severity === 'success' ? 'bg-green-50 text-green-500 hover:bg-green-100' : 
-                  alert.severity === 'error' ? 'bg-red-50 text-red-500 hover:bg-red-100' : 
-                  'bg-blue-50 text-blue-500 hover:bg-blue-100'
-                }`}
-              >
-                <span className="sr-only">Dismiss</span>
-                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </AdminLayout>
   );
 };
 
-export default Settings;
+export default SettingsPage;
