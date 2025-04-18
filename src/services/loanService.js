@@ -93,20 +93,20 @@ const loanService = {
   },
 
   /**
- * Fetch loan disbursement options 
- * @param {string} id - Loan ID
- * @returns {Promise<Object>} - Available payment methods
- */
-getLoanDisbursementOptions: async (id) => {
-  try {
-    // Change to a POST request
-    const response = await api.post(`/loans/loans/${id}/disburse/`, {});
-    return response;
-  } catch (error) {
-    console.error("Error fetching loan disbursement options:", error);
-    throw error;
-  }
-},
+   * Fetch loan disbursement options 
+   * @param {string} id - Loan ID
+   * @returns {Promise<Object>} - Available payment methods
+   */
+  getLoanDisbursementOptions: async (id) => {
+    try {
+      // Change to a POST request
+      const response = await api.post(`/loans/loans/${id}/disburse/`, {});
+      return response;
+    } catch (error) {
+      console.error("Error fetching loan disbursement options:", error);
+      throw error;
+    }
+  },
 
   /**
    * Disburse an approved loan
@@ -179,6 +179,121 @@ getLoanDisbursementOptions: async (id) => {
   },
 
   /**
+   * Get financial summary including available funds in the SACCO
+   * @returns {Promise<Object>} - Financial summary with available funds
+   */
+  getFinancialSummary: async () => {
+    try {
+      console.log("Calculating financial summary...");
+      
+      // 1. Get contribution statistics data directly
+      let totalContributions = 0;
+      try {
+        // Fetch raw contribution data
+        const monthlyContributions = await api.get('/contributions/monthly/');
+        const shareCapital = await api.get('/contributions/share-capital/');
+        
+        console.log("Monthly contributions:", monthlyContributions);
+        console.log("Share capital:", shareCapital);
+        
+        // Calculate total monthly contributions
+        let totalMonthlyContributions = 0;
+        if (Array.isArray(monthlyContributions)) {
+          totalMonthlyContributions = monthlyContributions.reduce((sum, contrib) => {
+            const amount = parseFloat(contrib.amount || 0);
+            console.log(`Monthly contribution: ${amount}`);
+            return sum + amount;
+          }, 0);
+        }
+        
+        // Calculate total share capital
+        let totalShareCapital = 0;
+        if (Array.isArray(shareCapital)) {
+          totalShareCapital = shareCapital.reduce((sum, share) => {
+            const amount = parseFloat(share.amount || 0);
+            console.log(`Share capital: ${amount}`);
+            return sum + amount;
+          }, 0);
+        }
+        
+        totalContributions = totalMonthlyContributions + totalShareCapital;
+        console.log("Calculated total contributions:", {
+          totalMonthlyContributions,
+          totalShareCapital,
+          totalContributions
+        });
+      } catch (error) {
+        console.error("Error calculating total contributions:", error);
+        totalContributions = 0;
+      }
+      
+      // 2. Get loan statistics
+      let outstandingAmount = 0;
+      let totalInterestEarned = 0;
+      
+      try {
+        // Get loans directly
+        const loans = await api.get('/loans/loans/');
+        console.log("Loans data:", loans);
+        
+        if (Array.isArray(loans)) {
+          // Calculate outstanding amount directly from loans
+          outstandingAmount = loans.reduce((sum, loan) => {
+            // Check if loan is active (APPROVED or DISBURSED)
+            if (loan.status === 'DISBURSED' || loan.status === 'APPROVED') {
+              const balance = parseFloat(loan.remaining_balance || 0);
+              console.log(`Loan ${loan.id} has remaining balance: ${balance}`);
+              return sum + balance;
+            }
+            return sum;
+          }, 0);
+          
+          // Calculate interest earned
+          totalInterestEarned = loans.reduce((sum, loan) => {
+            const interest = parseFloat(loan.interest_paid || 0);
+            console.log(`Loan ${loan.id} has interest paid: ${interest}`);
+            return sum + interest;
+          }, 0);
+        }
+        
+        console.log("Loan calculations:", {
+          outstandingAmount,
+          totalInterestEarned
+        });
+      } catch (error) {
+        console.error("Error calculating loan stats:", error);
+      }
+      
+      // 3. Calculate available funds
+      // Formula: Total Contributions + Interest Earned - Outstanding Loans
+      const availableFunds = totalContributions + totalInterestEarned - outstandingAmount;
+      
+      console.log("Final available funds calculation:", {
+        totalContributions,
+        totalInterestEarned,
+        outstandingAmount,
+        calculatedFunds: availableFunds
+      });
+      
+      return {
+        availableFunds: Math.max(0, availableFunds), // Ensure it's never negative
+        totalContributions,
+        outstandingAmount,
+        totalInterestEarned
+      };
+    } catch (error) {
+      console.error("Error calculating financial summary:", error);
+      // Return default values in case of error
+      return {
+        availableFunds: 0,
+        totalContributions: 0,
+        outstandingAmount: 0,
+        totalInterestEarned: 0
+      };
+    }
+  },
+
+  /**
    * Get loan statistics for dashboard
    * @returns {Promise<Object>} - Loan statistics
    */
@@ -227,6 +342,11 @@ getLoanDisbursementOptions: async (id) => {
         return sum + (parseFloat(loan.remaining_balance) || 0);
       }, 0);
       
+      // Calculate total interest earned
+      const totalInterestEarned = loans.reduce((sum, loan) => {
+        return sum + (parseFloat(loan.interest_paid) || 0);
+      }, 0);
+      
       // Assume some overdue loans (in real app, check repayment schedule status)
       const overdueLoans = Math.floor(activeLoans * 0.1); // 10% of active loans
       
@@ -249,7 +369,8 @@ getLoanDisbursementOptions: async (id) => {
         outstandingAmount,
         overdueLoans,
         fullyPaidLoans,
-        repaymentRate
+        repaymentRate,
+        totalInterestEarned
       };
     } catch (error) {
       console.error("Error fetching loan stats:", error);
@@ -263,7 +384,8 @@ getLoanDisbursementOptions: async (id) => {
         outstandingAmount: 0,
         overdueLoans: 0,
         fullyPaidLoans: 0,
-        repaymentRate: 0
+        repaymentRate: 0,
+        totalInterestEarned: 0
       };
     }
   }

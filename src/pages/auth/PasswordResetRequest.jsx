@@ -28,19 +28,16 @@ const PasswordResetRequest = () => {
     setError(null);
     
     try {
+      // The backend returns a message, not a success property
       const result = await requestPasswordReset(email);
       
-      if (result.success) {
-        setSuccess(true);
-        // Navigate to OTP verification after a short delay
-        setTimeout(() => {
-          navigate('/auth/verify-otp', { state: { email, forPasswordReset: true } });
-        }, 2000);
-      } else {
-        setError(result.error);
-      }
+      setSuccess(true);
+      // Navigate to OTP verification after a short delay
+      setTimeout(() => {
+        navigate('/auth/verify-otp', { state: { email, forPasswordReset: true } });
+      }, 2000);
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setError(err.message || 'An unexpected error occurred. Please try again.');
       console.error('Password reset request error:', err);
     } finally {
       setLoading(false);

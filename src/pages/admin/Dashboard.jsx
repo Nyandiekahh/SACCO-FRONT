@@ -19,31 +19,54 @@ const Dashboard = () => {
     contributionStats: {},
     loanStats: {},
     dueLoanPayments: [],
-    recentContributions: []
+    recentContributions: [],
+    availableFunds: 0
   });
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        console.log("Fetching dashboard data...");
         
         // Fetch all data in parallel
-        const [memberStats, contributionStats, loanStats, dueLoanPayments, recentContributions] = await Promise.all([
+        const [
+          memberStats, 
+          contributionStats, 
+          loanStats, 
+          dueLoanPayments, 
+          recentContributions
+        ] = await Promise.all([
           memberService.getMemberStats(),
           contributionService.getContributionStats(),
           loanService.getLoanStats(),
           loanService.getDuePayments(),
           contributionService.getRecentContributions()
         ]);
+        
+        console.log("Base data fetched, now calculating financial summary...");
+        
+        // Calculate financial summary separately to handle errors specifically for this calculation
+        let availableFunds = 0;
+        try {
+          const financialSummary = await loanService.getFinancialSummary();
+          console.log("Financial summary:", financialSummary);
+          availableFunds = financialSummary.availableFunds || 0;
+        } catch (finError) {
+          console.error("Error in financial summary calculation:", finError);
+          // Continue with zero if this calculation fails
+        }
 
         setDashboardData({
           memberStats,
           contributionStats,
           loanStats,
           dueLoanPayments,
-          recentContributions
+          recentContributions,
+          availableFunds
         });
         
+        console.log("Dashboard data set successfully");
         setLoading(false);
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
@@ -86,7 +109,14 @@ const Dashboard = () => {
     );
   }
 
-  const { memberStats, contributionStats, loanStats, dueLoanPayments, recentContributions } = dashboardData;
+  const { 
+    memberStats, 
+    contributionStats, 
+    loanStats, 
+    dueLoanPayments, 
+    recentContributions,
+    availableFunds 
+  } = dashboardData;
 
   return (
     <AdminLayout>
@@ -95,6 +125,7 @@ const Dashboard = () => {
         memberStats={memberStats}
         contributionStats={contributionStats}
         loanStats={loanStats}
+        availableFunds={availableFunds}
       />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

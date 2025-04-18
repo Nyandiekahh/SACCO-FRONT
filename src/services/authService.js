@@ -74,38 +74,38 @@ const authService = {
     return response;
   },
   
-  // Reset password
+  // Reset password - improved implementation
   resetPassword: async (newPassword, confirmPassword) => {
     const resetToken = localStorage.getItem('resetToken');
     
-    // Use the reset token for authorization
-    const originalToken = localStorage.getItem('accessToken');
-    localStorage.setItem('accessToken', resetToken);
+    if (!resetToken) {
+      throw new Error('Reset token not found. Please request a new password reset.');
+    }
     
     try {
-      const result = await api.post('/auth/reset-password/', {
-        new_password: newPassword,
-        confirm_password: confirmPassword
-      });
+      // Create a custom headers object with the reset token
+      const headers = {
+        'Authorization': `Bearer ${resetToken}`,
+        'Content-Type': 'application/json'
+      };
       
-      // Restore original token or clear if none
-      if (originalToken) {
-        localStorage.setItem('accessToken', originalToken);
-      } else {
-        localStorage.removeItem('accessToken');
-      }
+      // Use the request method that accepts custom headers
+      const result = await api.request('/auth/reset-password/', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          new_password: newPassword,
+          confirm_password: confirmPassword
+        })
+      });
       
       // Clear reset token after use
       localStorage.removeItem('resetToken');
       
       return result;
     } catch (error) {
-      // Restore original token or clear if none
-      if (originalToken) {
-        localStorage.setItem('accessToken', originalToken);
-      } else {
-        localStorage.removeItem('accessToken');
-      }
+      // Still clear the reset token on error
+      localStorage.removeItem('resetToken');
       throw error;
     }
   },

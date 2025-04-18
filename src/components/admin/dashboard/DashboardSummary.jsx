@@ -1,9 +1,33 @@
 // components/admin/dashboard/DashboardSummary.jsx
 import React from 'react';
 
-const DashboardSummary = ({ memberStats, contributionStats, loanStats }) => {
+const DashboardSummary = ({ memberStats, contributionStats, loanStats, availableFunds = 0 }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Available Funds - New Card */}
+      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="flex items-center">
+          <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div className="ml-5">
+            <p className="text-gray-500 text-sm">Available Funds</p>
+            <div className="flex items-end">
+              <h3 className="text-3xl font-semibold text-gray-800 mr-2">
+                KES {(availableFunds || 0).toLocaleString()}
+              </h3>
+            </div>
+          </div>
+        </div>
+        <div className="mt-6">
+          <p className="text-sm text-gray-600">
+            Total money available for SACCO operations, loans, and dividends
+          </p>
+        </div>
+      </div>
+
       {/* Total Members */}
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <div className="flex items-center">
@@ -93,7 +117,7 @@ const DashboardSummary = ({ memberStats, contributionStats, loanStats }) => {
             <p className="text-gray-500 text-sm">Total Loans</p>
             <div className="flex items-end">
               <h3 className="text-3xl font-semibold text-gray-800 mr-2">
-                KES {loanStats.totalLoansAmount?.toLocaleString() || 0}
+                KES {(loanStats.totalLoansAmount || 0).toLocaleString()}
               </h3>
               <p className="text-sm text-gray-500 pb-1">
                 ({loanStats.activeLoans || 0} active)
