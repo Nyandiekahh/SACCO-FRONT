@@ -132,6 +132,45 @@ const memberService = {
   },
 
   /**
+   * Invite a new member
+   * @param {Object} data - Member invitation data (email, share_capital_term)
+   * @returns {Promise<Object>} - Response message
+   */
+  inviteMember: async (data) => {
+    const response = await api.post('/auth/invite/', data);
+    return response;
+  },
+
+  /**
+   * Get sent invitations
+   * @param {Object} filters - Optional filters for the request
+   * @returns {Promise<Array>} - List of sent invitations
+   */
+  getSentInvitations: async (filters = {}) => {
+    // Convert filters to query params
+    const queryParams = new URLSearchParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined) {
+        queryParams.append(key, filters[key]);
+      }
+    });
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const response = await api.get(`/auth/invitations${queryString}`);
+    return response;
+  },
+
+  /**
+   * Resend an invitation
+   * @param {string} id - Invitation ID
+   * @returns {Promise<Object>} - Response message
+   */
+  resendInvitation: async (id) => {
+    const response = await api.post(`/auth/invitations/${id}/resend/`);
+    return response;
+  },
+
+  /**
    * Get member stats for admin dashboard
    * @returns {Promise<Object>} - Member statistics
    */

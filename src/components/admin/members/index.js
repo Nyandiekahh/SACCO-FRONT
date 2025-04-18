@@ -2,9 +2,13 @@
 import MemberFilters from './MemberFilters';
 import MembersTable from './MembersTable';
 import MemberActionButtons from './MemberActionButtons';
+import InviteMemberModal from './InviteMemberModal';
+import SentInvitationsTable from './SentInvitationsTable';
 
 export {
   MemberFilters,
   MembersTable,
-  MemberActionButtons
+  MemberActionButtons,
+  InviteMemberModal,
+  SentInvitationsTable
 };

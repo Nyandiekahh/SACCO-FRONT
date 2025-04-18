@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../layouts/AdminLayout';
 import { memberService } from '../../services';
-import { MemberFilters, MembersTable, MemberActionButtons } from '../../components/admin/members';
+import { MemberFilters, MembersTable, MemberActionButtons, SentInvitationsTable } from '../../components/admin/members';
 
 const Members = () => {
   const [loading, setLoading] = useState(true);
@@ -22,6 +22,11 @@ const Members = () => {
     totalPages: 1,
     totalItems: 0
   });
+  
+  // New state for invitations
+  const [invitations, setInvitations] = useState([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [invitationError, setInvitationError] = useState(null);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -48,7 +53,21 @@ const Members = () => {
       }
     };
 
+    const fetchInvitations = async () => {
+      try {
+        setLoadingInvitations(true);
+        const response = await memberService.getSentInvitations();
+        setInvitations(response);
+        setLoadingInvitations(false);
+      } catch (err) {
+        console.error('Failed to fetch invitations:', err);
+        setInvitationError('Could not load invitations. Please try again later.');
+        setLoadingInvitations(false);
+      }
+    };
+
     fetchMembers();
+    fetchInvitations();
   }, []);
 
   // Apply filters when filters or members change
@@ -189,6 +208,22 @@ const Members = () => {
     }
   };
 
+  // Handle resending invitation
+  const handleResendInvitation = async (invitationId) => {
+    try {
+      await memberService.resendInvitation(invitationId);
+      // Refresh invitations list
+      setLoadingInvitations(true);
+      const response = await memberService.getSentInvitations();
+      setInvitations(response);
+      setLoadingInvitations(false);
+      // You could add a success toast notification here
+    } catch (err) {
+      console.error('Failed to resend invitation:', err);
+      // You could add an error toast notification here
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -226,7 +261,17 @@ const Members = () => {
             Members
           </h2>
           
-          <MemberActionButtons />
+          <MemberActionButtons onInviteSent={() => {
+            // Refresh invitations after a new one is sent
+            setLoadingInvitations(true);
+            memberService.getSentInvitations().then(response => {
+              setInvitations(response);
+              setLoadingInvitations(false);
+            }).catch(err => {
+              console.error('Failed to refresh invitations:', err);
+              setLoadingInvitations(false);
+            });
+          }} />
         </div>
         
         <MemberFilters 
@@ -236,7 +281,7 @@ const Members = () => {
         />
       </div>
       
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
         <MembersTable 
           members={getCurrentPageMembers()} 
           onToggleActive={handleToggleActive}
@@ -305,6 +350,30 @@ const Members = () => {
               </div>
             </div>
           </div>
+        )}
+      </div>
+      
+      {/* Sent Invitations Section */}
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Sent Invitations</h3>
+        </div>
+        
+        {invitationError && (
+          <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+            <p>{invitationError}</p>
+          </div>
+        )}
+        
+        {loadingInvitations ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <SentInvitationsTable 
+            invitations={invitations} 
+            onResend={handleResendInvitation} 
+          />
         )}
       </div>
     </AdminLayout>
