@@ -79,18 +79,31 @@ const MemberDetail = () => {
 
   const handleVerifyDocument = async (documentType) => {
     try {
-      await authService.verifyDocument(documentType);
+      console.log('Verifying document:', documentType, 'for member ID:', memberId);
+      
+      // Pass the member ID to the verifyDocumentByType function
+      const response = await authService.verifyDocumentByType(documentType, memberId);
       toast.success('Document verified successfully');
+      
       // Refresh member data to show updated verification status
       const memberData = await memberService.getMemberById(memberId);
       memberData.documents = transformDocuments(memberData.documents);
       setMember(memberData);
     } catch (error) {
-      console.error('Failed to verify document:', error);
-      toast.error('Could not verify document');
+      console.error('Failed to verify document. Error details:', error);
+      
+      // Try to extract and display the specific error message
+      let errorMessage = 'Could not verify document';
+      if (error.data && typeof error.data === 'object') {
+        errorMessage += ': ' + (error.data.error || JSON.stringify(error.data));
+      } else if (error.message) {
+        errorMessage += ': ' + error.message;
+      }
+      
+      toast.error(errorMessage);
     }
   };
-
+  
   const handleToggleUserStatus = async () => {
     try {
       const reason = member.is_on_hold ? '' : prompt('Please provide a reason for putting this member on hold:');

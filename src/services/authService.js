@@ -180,11 +180,15 @@ const authService = {
   /**
    * Admin verifies a document by type
    * @param {string} documentType - Document type to verify (e.g., 'ID_FRONT')
+   * @param {string} memberId - Member ID whose document to verify
    * @returns {Promise<Object>} - Response
    */
-  verifyDocumentByType: async (documentType) => {
+  verifyDocumentByType: async (documentType, memberId) => {
     try {
-      const response = await api.post(`/admin/verify-document/type/${documentType}/`);
+      // Include the member ID in the request body
+      const response = await api.post(`/admin/verify-document/type/${documentType}/`, {
+        member_id: memberId
+      });
       return response;
     } catch (error) {
       console.error('Error verifying document by type:', error);
