@@ -27,8 +27,13 @@ const loanService = {
    * @returns {Promise<Object>} - Created application
    */
   createLoanApplication: async (applicationData) => {
-    const response = await api.post('/loans/applications/', applicationData);
-    return response;
+    try {
+      const response = await api.post('/loans/applications/', applicationData);
+      return response;
+    } catch (error) {
+      console.error("Error creating loan application:", error);
+      throw error;
+    }
   },
 
   /**
@@ -179,117 +184,78 @@ const loanService = {
   },
 
   /**
-   * Get financial summary including available funds in the SACCO
-   * @returns {Promise<Object>} - Financial summary with available funds
+   * Get eligible guarantors for a loan amount
+   * @param {number} loanAmount - The loan amount
+   * @returns {Promise<Array>} - List of eligible guarantors with their limits
    */
-  getFinancialSummary: async () => {
+  getEligibleGuarantors: async (loanAmount) => {
     try {
-      console.log("Calculating financial summary...");
-      
-      // 1. Get contribution statistics data directly
-      let totalContributions = 0;
-      try {
-        // Fetch raw contribution data
-        const monthlyContributions = await api.get('/contributions/monthly/');
-        const shareCapital = await api.get('/contributions/share-capital/');
-        
-        console.log("Monthly contributions:", monthlyContributions);
-        console.log("Share capital:", shareCapital);
-        
-        // Calculate total monthly contributions
-        let totalMonthlyContributions = 0;
-        if (Array.isArray(monthlyContributions)) {
-          totalMonthlyContributions = monthlyContributions.reduce((sum, contrib) => {
-            const amount = parseFloat(contrib.amount || 0);
-            console.log(`Monthly contribution: ${amount}`);
-            return sum + amount;
-          }, 0);
-        }
-        
-        // Calculate total share capital
-        let totalShareCapital = 0;
-        if (Array.isArray(shareCapital)) {
-          totalShareCapital = shareCapital.reduce((sum, share) => {
-            const amount = parseFloat(share.amount || 0);
-            console.log(`Share capital: ${amount}`);
-            return sum + amount;
-          }, 0);
-        }
-        
-        totalContributions = totalMonthlyContributions + totalShareCapital;
-        console.log("Calculated total contributions:", {
-          totalMonthlyContributions,
-          totalShareCapital,
-          totalContributions
-        });
-      } catch (error) {
-        console.error("Error calculating total contributions:", error);
-        totalContributions = 0;
-      }
-      
-      // 2. Get loan statistics
-      let outstandingAmount = 0;
-      let totalInterestEarned = 0;
-      
-      try {
-        // Get loans directly
-        const loans = await api.get('/loans/loans/');
-        console.log("Loans data:", loans);
-        
-        if (Array.isArray(loans)) {
-          // Calculate outstanding amount directly from loans
-          outstandingAmount = loans.reduce((sum, loan) => {
-            // Check if loan is active (APPROVED or DISBURSED)
-            if (loan.status === 'DISBURSED' || loan.status === 'APPROVED') {
-              const balance = parseFloat(loan.remaining_balance || 0);
-              console.log(`Loan ${loan.id} has remaining balance: ${balance}`);
-              return sum + balance;
-            }
-            return sum;
-          }, 0);
-          
-          // Calculate interest earned
-          totalInterestEarned = loans.reduce((sum, loan) => {
-            const interest = parseFloat(loan.interest_paid || 0);
-            console.log(`Loan ${loan.id} has interest paid: ${interest}`);
-            return sum + interest;
-          }, 0);
-        }
-        
-        console.log("Loan calculations:", {
-          outstandingAmount,
-          totalInterestEarned
-        });
-      } catch (error) {
-        console.error("Error calculating loan stats:", error);
-      }
-      
-      // 3. Calculate available funds
-      // Formula: Total Contributions + Interest Earned - Outstanding Loans
-      const availableFunds = totalContributions + totalInterestEarned - outstandingAmount;
-      
-      console.log("Final available funds calculation:", {
-        totalContributions,
-        totalInterestEarned,
-        outstandingAmount,
-        calculatedFunds: availableFunds
-      });
-      
-      return {
-        availableFunds: Math.max(0, availableFunds), // Ensure it's never negative
-        totalContributions,
-        outstandingAmount,
-        totalInterestEarned
-      };
+      const response = await api.get(`/loans/eligible-guarantors/?loan_amount=${loanAmount}`);
+      return response;
     } catch (error) {
-      console.error("Error calculating financial summary:", error);
-      // Return default values in case of error
-      return {
-        availableFunds: 0,
-        totalContributions: 0,
-        outstandingAmount: 0,
-        totalInterestEarned: 0
-      };
+      console.error("Error fetching eligible guarantors:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a guarantor request
+   * @param {Object} requestData - Request data with guarantor, loan application, and percentage
+   * @returns {Promise<Object>} - Created guarantor request
+   */
+  createGuarantorRequest: async (requestData) => {
+    try {
+      const response = await api.post('/loans/guarantor-requests/', requestData);
+      return response;
+    } catch (error) {
+      console.error("Error creating guarantor request:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get pending guarantor requests for the current user
+   * @returns {Promise<Array>} - List of pending guarantor requests
+   */
+  getPendingGuarantorRequests: async () => {
+    try {
+      const response = await api.get('/loans/guarantor-requests/pending/');
+      return response;
+    } catch (error) {
+      console.error("Error fetching pending guarantor requests:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Accept a guarantor request
+   * @param {string} id - Request ID
+   * @param {Object} responseData - Response data with message
+   * @returns {Promise<Object>} - Response status
+   */
+  acceptGuarantorRequest: async (id, responseData = {}) => {
+    try {
+      const response = await api.post(`/loans/guarantor-requests/${id}/accept/`, responseData);
+      return response;
+    } catch (error) {
+      console.error("Error accepting guarantor request:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reject a guarantor request
+   * @param {string} id - Request ID
+   * @param {Object} responseData - Response data with message
+   * @returns {Promise<Object>} - Response status
+   */
+  rejectGuarantorRequest: async (id, responseData = {}) => {
+    try {
+      const response = await api.post(`/loans/guarantor-requests/${id}/reject/`, responseData);
+      return response;
+    } catch (error) {
+      console.error("Error rejecting guarantor request:", error);
+      throw error;
     }
   },
 
@@ -342,11 +308,6 @@ const loanService = {
         return sum + (parseFloat(loan.remaining_balance) || 0);
       }, 0);
       
-      // Calculate total interest earned
-      const totalInterestEarned = loans.reduce((sum, loan) => {
-        return sum + (parseFloat(loan.interest_paid) || 0);
-      }, 0);
-      
       // Assume some overdue loans (in real app, check repayment schedule status)
       const overdueLoans = Math.floor(activeLoans * 0.1); // 10% of active loans
       
@@ -369,8 +330,7 @@ const loanService = {
         outstandingAmount,
         overdueLoans,
         fullyPaidLoans,
-        repaymentRate,
-        totalInterestEarned
+        repaymentRate
       };
     } catch (error) {
       console.error("Error fetching loan stats:", error);
@@ -384,8 +344,7 @@ const loanService = {
         outstandingAmount: 0,
         overdueLoans: 0,
         fullyPaidLoans: 0,
-        repaymentRate: 0,
-        totalInterestEarned: 0
+        repaymentRate: 0
       };
     }
   }

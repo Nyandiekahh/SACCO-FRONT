@@ -12,7 +12,10 @@ import {
   Calendar,
   Clock,
   Info,
-  Upload
+  Upload,
+  UserPlus,
+  Trash2,
+  Percent
 } from 'lucide-react';
 import { loanService } from '../../services';
 
@@ -26,6 +29,14 @@ const LoanApplication = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [applicationId, setApplicationId] = useState(null);
+  
+  // Guarantor states
+  const [eligibleGuarantors, setEligibleGuarantors] = useState([]);
+  const [selectedGuarantors, setSelectedGuarantors] = useState([]);
+  const [loadingGuarantors, setLoadingGuarantors] = useState(false);
+  const [guarantorError, setGuarantorError] = useState(null);
+  const [totalGuaranteePercentage, setTotalGuaranteePercentage] = useState(0);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -33,9 +44,6 @@ const LoanApplication = () => {
     purpose: '',
     term_months: 12,
     has_guarantor: false,
-    guarantor_name: '',
-    guarantor_contact: '',
-    guarantor_relationship: '',
     application_document: null
   });
 
@@ -56,6 +64,34 @@ const LoanApplication = () => {
 
     checkEligibility();
   }, []);
+
+  // Fetch eligible guarantors when amount changes
+  useEffect(() => {
+    if (formData.amount && parseFloat(formData.amount) > 0 && step === 3) {
+      fetchEligibleGuarantors(parseFloat(formData.amount));
+    }
+  }, [formData.amount, step]);
+
+  // Calculate total guarantee percentage when selected guarantors change
+  useEffect(() => {
+    const total = selectedGuarantors.reduce((sum, g) => sum + parseFloat(g.guaranteePercentage || 0), 0);
+    setTotalGuaranteePercentage(total);
+  }, [selectedGuarantors]);
+
+  // Fetch eligible guarantors
+  const fetchEligibleGuarantors = async (amount) => {
+    try {
+      setLoadingGuarantors(true);
+      setGuarantorError(null);
+      const response = await loanService.getEligibleGuarantors(amount);
+      setEligibleGuarantors(response);
+    } catch (err) {
+      console.error('Failed to fetch eligible guarantors:', err);
+      setGuarantorError('Could not retrieve eligible guarantors. Please try again.');
+    } finally {
+      setLoadingGuarantors(false);
+    }
+  };
 
   // Handle form inputs
   const handleChange = (e) => {
@@ -80,8 +116,8 @@ const LoanApplication = () => {
     }
   };
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  // Handle loan application submission
+  const handleCreateApplication = async (e) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
@@ -97,33 +133,137 @@ const LoanApplication = () => {
         }
       });
       
-      // Submit application
-      const response = await loanService.submitApplication(applicationData);
+      // Submit application without guarantors initially
+      const response = await loanService.createLoanApplication(applicationData);
       
+      setApplicationId(response.id);
+      
+      // Move to guarantor selection
+      setStep(3);
+    } catch (err) {
+      console.error('Failed to create loan application:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to create loan application. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle guarantor selection
+  const handleAddGuarantor = (guarantor) => {
+    // Check if guarantor is already selected
+    if (selectedGuarantors.some(g => g.id === guarantor.id)) {
+      setGuarantorError('This guarantor is already selected.');
+      return;
+    }
+    
+    // Add guarantor with default percentage
+    const defaultPercentage = Math.min(guarantor.maximum_percentage, 100 - totalGuaranteePercentage);
+    
+    setSelectedGuarantors(prev => [
+      ...prev, 
+      {
+        ...guarantor,
+        guaranteePercentage: defaultPercentage
+      }
+    ]);
+    
+    setGuarantorError(null);
+  };
+
+  // Handle guarantor removal
+  const handleRemoveGuarantor = (guarantorId) => {
+    setSelectedGuarantors(prev => prev.filter(g => g.id !== guarantorId));
+  };
+
+  // Handle guarantor percentage change
+  const handleGuarantorPercentageChange = (guarantorId, percentage) => {
+    const numValue = parseFloat(percentage);
+    if (isNaN(numValue) || numValue < 0) return;
+    
+    const guarantor = eligibleGuarantors.find(g => g.id === guarantorId);
+    if (!guarantor) return;
+    
+    // Check if percentage exceeds guarantor's maximum
+    if (numValue > guarantor.maximum_percentage) {
+      setGuarantorError(`Percentage exceeds guarantor's maximum of ${guarantor.maximum_percentage.toFixed(2)}%`);
+      return;
+    }
+    
+    // Calculate what total would be with this change
+    const otherGuarantorsTotal = selectedGuarantors.reduce((sum, g) => 
+      g.id === guarantorId ? sum : sum + parseFloat(g.guaranteePercentage || 0), 0);
+    
+    if (otherGuarantorsTotal + numValue > 100) {
+      setGuarantorError('Total guarantee percentage cannot exceed 100%');
+      return;
+    }
+    
+    // Update guarantor's percentage
+    setSelectedGuarantors(prev => prev.map(g => 
+      g.id === guarantorId ? { ...g, guaranteePercentage: numValue } : g
+    ));
+    
+    setGuarantorError(null);
+  };
+
+  // Handle guarantor requests submission
+  const handleSubmitGuarantorRequests = async () => {
+    if (totalGuaranteePercentage !== 100) {
+      setGuarantorError('Total guarantee percentage must be exactly 100%');
+      return;
+    }
+    
+    setSubmitting(true);
+    setError(null);
+    
+    try {
+      // Create guarantor requests for each selected guarantor
+      const guarantorPromises = selectedGuarantors.map(guarantor => 
+        loanService.createGuarantorRequest({
+          loan_application: applicationId,
+          guarantor: guarantor.id,
+          guarantee_percentage: guarantor.guaranteePercentage,
+          message: `Please guarantee ${guarantor.guaranteePercentage}% of my loan of KES ${formData.amount}`
+        })
+      );
+      
+      await Promise.all(guarantorPromises);
+      
+      // Show success message
       setSuccess({
         message: 'Your loan application has been submitted successfully.',
-        applicationId: response.id
+        applicationId: applicationId
       });
       
-      // Reset form
+      // Reset form and move to success step
       setFormData({
         amount: '',
         purpose: '',
         term_months: 12,
         has_guarantor: false,
-        guarantor_name: '',
-        guarantor_contact: '',
-        guarantor_relationship: '',
         application_document: null
       });
       
       // Move to success step
       setStep(4);
     } catch (err) {
-      console.error('Failed to submit loan application:', err);
-      setError(err.response?.data?.error || 'Failed to submit loan application. Please try again.');
+      console.error('Failed to submit guarantor requests:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to submit guarantor requests. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // If application doesn't have guarantors, submit directly
+    if (!formData.has_guarantor) {
+      handleCreateApplication(e);
+    } else {
+      // Move to guarantor selection step
+      setStep(3);
     }
   };
 
@@ -335,7 +475,7 @@ const LoanApplication = () => {
         </div>
         
         <div className="px-4 py-5 sm:p-6">
-          <form onSubmit={(e) => { e.preventDefault(); nextStep(); }}>
+          <form onSubmit={handleCreateApplication}>
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <div className="sm:col-span-3">
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
@@ -399,44 +539,8 @@ const LoanApplication = () => {
                   required
                 ></textarea>
               </div>
-            </div>
 
-            <div className="mt-8 flex justify-between">
-              <button
-                type="button"
-                onClick={prevStep}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Continue
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  // Render guarantor and documents form (Step 3)
-  const renderGuarantorForm = () => {
-    return (
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 sm:px-6 bg-blue-50 border-b border-blue-100">
-          <h3 className="text-lg leading-6 font-medium text-blue-800">Loan Guarantor &amp; Documents</h3>
-          <p className="mt-1 text-sm text-blue-600">
-            Add guarantor information and upload supporting documents.
-          </p>
-        </div>
-        
-        <div className="px-4 py-5 sm:p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-8">
-              <div>
+              <div className="sm:col-span-6">
                 <div className="flex items-center space-x-2">
                   <input
                     id="has_guarantor"
@@ -447,109 +551,65 @@ const LoanApplication = () => {
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="has_guarantor" className="font-medium text-gray-700">
-                    I have a guarantor for this loan
+                    I need guarantors for this loan
                   </label>
                 </div>
-                
                 {formData.has_guarantor && (
-                  <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    <div className="sm:col-span-3">
-                      <label htmlFor="guarantor_name" className="block text-sm font-medium text-gray-700">
-                        Guarantor Name
-                      </label>
-                      <input
-                        type="text"
-                        name="guarantor_name"
-                        id="guarantor_name"
-                        value={formData.guarantor_name}
-                        onChange={handleChange}
-                        className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        required={formData.has_guarantor}
-                      />
-                    </div>
-
-                    <div className="sm:col-span-3">
-                      <label htmlFor="guarantor_contact" className="block text-sm font-medium text-gray-700">
-                        Guarantor Contact
-                      </label>
-                      <input
-                        type="text"
-                        name="guarantor_contact"
-                        id="guarantor_contact"
-                        value={formData.guarantor_contact}
-                        onChange={handleChange}
-                        className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        required={formData.has_guarantor}
-                      />
-                    </div>
-
-                    <div className="sm:col-span-6">
-                      <label htmlFor="guarantor_relationship" className="block text-sm font-medium text-gray-700">
-                        Relationship to Guarantor
-                      </label>
-                      <input
-                        type="text"
-                        name="guarantor_relationship"
-                        id="guarantor_relationship"
-                        value={formData.guarantor_relationship}
-                        onChange={handleChange}
-                        className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        required={formData.has_guarantor}
-                      />
-                    </div>
-                  </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    You'll select guarantors in the next step. Guarantors must be SACCO members with sufficient deposits.
+                  </p>
                 )}
               </div>
+            </div>
+
+            <div className="border-t border-gray-200 mt-6 pt-6">
+              <h3 className="text-lg font-medium text-gray-900">Supporting Documents</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Upload any supporting documents for your loan application (optional).
+              </p>
               
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900">Supporting Documents</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Upload any supporting documents for your loan application (optional).
-                </p>
-                
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700">Application Document</label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                    <div className="space-y-1 text-center">
-                      <svg
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        stroke="currentColor"
-                        fill="none"
-                        viewBox="0 0 48 48"
-                        aria-hidden="true"
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700">Application Document</label>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                  <div className="space-y-1 text-center">
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      stroke="currentColor"
+                      fill="none"
+                      viewBox="0 0 48 48"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4h-12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <div className="flex text-sm text-gray-600">
+                      <label
+                        htmlFor="application_document"
+                        className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
                       >
-                        <path
-                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4h-12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                        <span>Upload a file</span>
+                        <input
+                          id="application_document"
+                          name="application_document"
+                          type="file"
+                          className="sr-only"
+                          onChange={handleChange}
                         />
-                      </svg>
-                      <div className="flex text-sm text-gray-600">
-                        <label
-                          htmlFor="application_document"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                        >
-                          <span>Upload a file</span>
-                          <input
-                            id="application_document"
-                            name="application_document"
-                            type="file"
-                            className="sr-only"
-                            onChange={handleChange}
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">PDF, PNG, JPG up to 10MB</p>
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
                     </div>
+                    <p className="text-xs text-gray-500">PDF, PNG, JPG up to 10MB</p>
                   </div>
-                  {formData.application_document && (
-                    <p className="mt-2 text-sm text-gray-500">
-                      Selected file: {formData.application_document.name}
-                    </p>
-                  )}
                 </div>
+                {formData.application_document && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    Selected file: {formData.application_document.name}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -582,14 +642,210 @@ const LoanApplication = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Submitting...
+                    Processing...
                   </>
+                ) : formData.has_guarantor ? (
+                  'Continue to Guarantor Selection'
                 ) : (
                   'Submit Application'
                 )}
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Render guarantor selection form (Step 3)
+  const renderGuarantorSelection = () => {
+    return (
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="px-4 py-5 sm:px-6 bg-blue-50 border-b border-blue-100">
+          <h3 className="text-lg leading-6 font-medium text-blue-800">Select Guarantors</h3>
+          <p className="mt-1 text-sm text-blue-600">
+            Choose guarantors from SACCO members to support your loan application.
+          </p>
+        </div>
+        
+        <div className="px-4 py-5 sm:p-6">
+          <div className="mb-6">
+            <div className="bg-yellow-50 p-4 rounded-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Info className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Guarantor Information</h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>Guarantors must collectively cover 100% of your loan amount. Each guarantor's maximum contribution is based on their available deposits.</p>
+                    <p className="mt-1">Selected guarantors will receive a request to approve their guarantorship. Your loan will only proceed when all guarantors have accepted.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Guarantor selection progress */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm font-medium text-gray-700">Guarantee Coverage: {totalGuaranteePercentage.toFixed(2)}%</div>
+              <div className="text-sm font-medium text-gray-700">{totalGuaranteePercentage === 100 ? "Complete" : "Incomplete"}</div>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className={`h-2.5 rounded-full ${totalGuaranteePercentage === 100 ? 'bg-green-600' : 'bg-blue-600'}`} 
+                style={{ width: `${Math.min(totalGuaranteePercentage, 100)}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Selected guarantors */}
+          {selectedGuarantors.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-lg font-medium text-gray-900 mb-3">Selected Guarantors</h4>
+              <div className="space-y-3">
+                {selectedGuarantors.map(guarantor => (
+                  <div key={guarantor.id} className="bg-white p-4 border border-gray-200 rounded-md">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="font-medium">{guarantor.full_name}</div>
+                      <button 
+                        type="button"
+                        onClick={() => handleRemoveGuarantor(guarantor.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center mb-2">
+                      <span className="text-sm text-gray-500 w-32">Contact:</span>
+                      <span className="text-sm text-gray-700">{guarantor.email} / {guarantor.phone_number}</span>
+                    </div>
+
+                    <div className="flex items-center mb-2">
+                      <span className="text-sm text-gray-500 w-32">Available Amount:</span>
+                      <span className="text-sm text-gray-700">KES {guarantor.available_guarantee_amount.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-500 w-32">Guarantee Percentage:</span>
+                      <div className="relative w-32">
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <Percent className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <input
+                          type="number"
+                          className="block w-full pr-10 focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300 rounded-md"
+                          value={guarantor.guaranteePercentage || ""}
+                          onChange={(e) => handleGuarantorPercentageChange(guarantor.id, e.target.value)}
+                          min="1"
+                          max={guarantor.maximum_percentage}
+                          step="0.01"
+                          required
+                        />
+                      </div>
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Max: {guarantor.maximum_percentage.toFixed(2)}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Available guarantors */}
+          <div className="mb-6">
+            <h4 className="text-lg font-medium text-gray-900 mb-3">Available Guarantors</h4>
+            
+            {loadingGuarantors ? (
+              <div className="flex justify-center items-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
+              </div>
+            ) : eligibleGuarantors.length === 0 ? (
+              <div className="bg-gray-50 p-4 rounded-md text-center">
+                <p className="text-gray-500">No eligible guarantors found. Try adjusting the loan amount.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {eligibleGuarantors
+                  .filter(g => !selectedGuarantors.some(sg => sg.id === g.id))
+                  .map(guarantor => (
+                    <div key={guarantor.id} className="bg-gray-50 p-4 rounded-md">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="font-medium">{guarantor.full_name}</div>
+                        <button 
+                          type="button"
+                          onClick={() => handleAddGuarantor(guarantor)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <UserPlus className="h-4 w-4 mr-1" /> Add
+                        </button>
+                      </div>
+                      
+                      <div className="flex items-center mb-1">
+                        <span className="text-sm text-gray-500 w-40">Available Amount:</span>
+                        <span className="text-sm text-gray-700">KES {guarantor.available_guarantee_amount.toLocaleString()}</span>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500 w-40">Maximum Percentage:</span>
+                        <span className="text-sm text-gray-700">{guarantor.maximum_percentage.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {/* Display any error message */}
+          {guarantorError && (
+            <div className="mt-4 mb-6 bg-red-50 border-l-4 border-red-500 p-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                <p className="text-sm text-red-700">{guarantorError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Display any error message */}
+          {error && (
+            <div className="mt-4 mb-6 bg-red-50 border-l-4 border-red-500 p-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex justify-between">
+            <button
+              type="button"
+              onClick={prevStep}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmitGuarantorRequests}
+              disabled={submitting || totalGuaranteePercentage !== 100 || selectedGuarantors.length === 0}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {submitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting...
+                </>
+              ) : (
+                'Submit Guarantor Requests'
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -616,22 +872,34 @@ const LoanApplication = () => {
           <div className="text-center mb-6">
             <h3 className="text-lg font-medium text-gray-900">Thank You!</h3>
             <p className="mt-1 text-gray-500">
-              Your loan application has been received and is now under review. 
-              You will receive updates on the status of your application.
+              Your loan application has been received and guarantor requests have been sent.
+              You will be notified when guarantors respond to your requests.
             </p>
           </div>
           
           <dl className="divide-y divide-gray-200">
             <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
-              <dt className="text-sm font-medium text-gray-500">Amount Requested</dt>
+              <dt className="text-sm font-medium text-gray-500">Application Date</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                 {new Date().toLocaleDateString()}
               </dd>
             </div>
             <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+              <dt className="text-sm font-medium text-gray-500">Amount Requested</dt>
+              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                KES {parseFloat(formData.amount).toLocaleString()}
+              </dd>
+            </div>
+            <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
               <dt className="text-sm font-medium text-gray-500">Status</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                Pending Review
+                Pending Guarantor Approval
+              </dd>
+            </div>
+            <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+              <dt className="text-sm font-medium text-gray-500">Next Steps</dt>
+              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                Once all guarantors approve, your application will be reviewed by the SACCO administrators.
               </dd>
             </div>
           </dl>
@@ -702,8 +970,8 @@ const LoanApplication = () => {
 
           <li className="md:flex-1">
             <button
-              onClick={() => eligibility?.eligible && formData.amount && setStep(3)}
-              disabled={!eligibility?.eligible || !formData.amount || step === 3}
+              onClick={() => eligibility?.eligible && formData.amount && formData.has_guarantor && setStep(3)}
+              disabled={!eligibility?.eligible || !formData.amount || !formData.has_guarantor || step === 3}
               className={`group pl-4 py-2 flex flex-col border-l-4 hover:border-blue-800 md:pl-0 md:pt-4 md:pb-0 md:border-l-0 md:border-t-4 w-full text-left ${
                 step >= 3
                   ? 'border-blue-600 md:border-blue-600'
@@ -715,7 +983,7 @@ const LoanApplication = () => {
               }`}>
                 Step 3
               </span>
-              <span className="text-sm font-medium">Guarantor & Documents</span>
+              <span className="text-sm font-medium">Guarantor Selection</span>
             </button>
           </li>
 
@@ -752,7 +1020,7 @@ const LoanApplication = () => {
         
         {step === 1 && renderEligibilityCheck()}
         {step === 2 && renderLoanApplicationForm()}
-        {step === 3 && renderGuarantorForm()}
+        {step === 3 && renderGuarantorSelection()}
         {step === 4 && renderSuccessMessage()}
       </div>
     </MemberLayout>
