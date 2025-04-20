@@ -207,17 +207,9 @@ const Dashboard = () => {
         <QuickActionCard 
           icon={CreditCard}
           title="Contributions"
-          description="Make a contribution"
+          description="Check out your contributions to the Sacco"
           to="/member/contributions"
           bgColor="text-blue-500"
-        />
-        
-        <QuickActionCard 
-          icon={Wallet}
-          title="Share Capital"
-          description="Add share capital"
-          to="/member/share-capital"
-          bgColor="text-green-500"
         />
         
         <QuickActionCard 
