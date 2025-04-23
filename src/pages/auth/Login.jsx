@@ -59,7 +59,7 @@ const Login = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">Login to Your Account</h1>
         <p className="text-center text-gray-600">
-          Enter your email and password to access your account
+          Enter your email address and password to access your account
         </p>
       </div>
       
