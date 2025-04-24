@@ -39,7 +39,7 @@ const Login = () => {
     setError(null);
     
     try {
-      // The login function from AuthContext will handle navigation
+      // The login function from AuthContext will handle navigation here
       const result = await login(email, password);
       
       if (!result.success) {
