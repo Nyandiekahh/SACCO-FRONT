@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import AuthLayout from '../../layouts/AuthLayout';
 import VerifyOTPForm from '../../components/auth/VerifyOTPForm';
-import { useAuth } from '../../context/AuthContext';
+import authService from '../../services/authService'; // Add this import
 
 const VerifyOTP = () => {
   const [email, setEmail] = useState('');
@@ -12,7 +12,7 @@ const VerifyOTP = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { verifyOTP } = useAuth();
+  // REMOVE this line: const { verifyOTP } = useAuth();
 
   useEffect(() => {
     // Get email from location state (passed from password reset request or other flow)
@@ -30,26 +30,28 @@ const VerifyOTP = () => {
     setError(null);
     
     try {
-      const result = await verifyOTP(email, otp);
+      // CHANGE this line from: const result = await verifyOTP(email, otp);
+      const result = await authService.verifyOTP(email, otp);
       
-      if (result.success) {
-        if (forPasswordReset) {
-          // If for password reset, navigate to reset password page
-          navigate('/auth/reset-password', { 
-            state: { 
-              email,
-              reset_token: result.reset_token 
-            } 
-          });
-        } else {
-          // If for other purpose, handle accordingly (e.g. verification success page)
-          navigate('/auth/verification-success');
-        }
+      if (forPasswordReset) {
+        // If for password reset, navigate to reset password page
+        navigate('/auth/reset-password', { 
+          state: { 
+            email,
+            reset_token: result.reset_token 
+          } 
+        });
       } else {
-        setError(result.error);
+        // If for other purpose, handle accordingly (e.g. verification success page)
+        navigate('/auth/verification-success');
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      // Handle different error formats from your authService
+      if (err.data && err.data.error) {
+        setError(err.data.error);
+      } else {
+        setError(err.message || 'An unexpected error occurred. Please try again.');
+      }
       console.error('OTP verification error:', err);
     } finally {
       setLoading(false);

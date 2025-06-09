@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import AuthLayout from '../../layouts/AuthLayout';
-import { useAuth } from '../../context/AuthContext';
+import authService from '../../services/authService'; // Add this import
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');
@@ -13,7 +13,7 @@ const ResetPassword = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { resetPassword } = useAuth();
+  // REMOVE this line: const { resetPassword } = useAuth();
 
   // Verify we have the necessary data from previous step
   useEffect(() => {
@@ -51,19 +51,23 @@ const ResetPassword = () => {
     setError(null);
     
     try {
-      const result = await resetPassword(password, confirmPassword);
+      // CHANGE this line from: const result = await resetPassword(password, confirmPassword);
+      const result = await authService.resetPassword(password, confirmPassword);
       
-      if (result.success) {
-        setSuccess(true);
-        // Redirect to login after successful password reset
-        setTimeout(() => {
-          navigate('/auth/login');
-        }, 3000);
-      } else {
-        setError(result.error);
-      }
+      setSuccess(true);
+      // Redirect to login after successful password reset
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      // Handle different error formats from your authService
+      if (err.data && err.data.error) {
+        setError(err.data.error);
+      } else if (err.data && err.data.new_password) {
+        setError(err.data.new_password[0]);
+      } else {
+        setError(err.message || 'An unexpected error occurred. Please try again.');
+      }
       console.error('Password reset error:', err);
     } finally {
       setLoading(false);
@@ -168,7 +172,7 @@ const ResetPassword = () => {
       
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600">
-          <Link to="/auth/login" className="text-blue-600 hover:text-blue-800">
+          <Link to="/login" className="text-blue-600 hover:text-blue-800">
             Back to Login
           </Link>
         </p>

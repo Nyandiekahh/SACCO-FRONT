@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AuthLayout from '../../layouts/AuthLayout';
-import { useAuth } from '../../context/AuthContext';
+import authService from '../../services/authService'; // Add this import
 
 const PasswordResetRequest = () => {
   const [email, setEmail] = useState('');
@@ -9,7 +9,7 @@ const PasswordResetRequest = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { requestPasswordReset } = useAuth();
+  // REMOVE this line: const { requestPasswordReset } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,8 +28,8 @@ const PasswordResetRequest = () => {
     setError(null);
     
     try {
-      // The backend returns a message, not a success property
-      const result = await requestPasswordReset(email);
+      // CHANGE this line from: const result = await requestPasswordReset(email);
+      const result = await authService.requestPasswordReset(email);
       
       setSuccess(true);
       // Navigate to OTP verification after a short delay
