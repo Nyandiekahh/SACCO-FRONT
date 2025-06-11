@@ -11,6 +11,15 @@ console.log('Environment variables:', {
 });
 console.log('================================');
 
+// Add global error handler to catch any unhandled errors
+window.addEventListener('error', (event) => {
+  console.error('Global error caught:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
 // Track request timestamps to prevent rate limiting
 const requestTimestamps = {};
 const THROTTLE_INTERVAL = 500; // 500ms between requests to the same endpoint
