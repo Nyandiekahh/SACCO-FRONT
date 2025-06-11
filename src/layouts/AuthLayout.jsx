@@ -7,7 +7,7 @@ const AuthLayout = ({ children }) => {
         <div className="flex justify-center mb-8">
           <img
             className="h-20 w-auto"
-            src="/logo.png" // Add your logo here
+            src="/logo.svg" // Add your logo here
             alt="SACCO Logo"
           />
         </div>
