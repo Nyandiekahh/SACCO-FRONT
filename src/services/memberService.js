@@ -3,6 +3,22 @@ import api from './api';
 
 const memberService = {
   /**
+   * Get member dashboard data - FIXED for your backend
+   * @returns {Promise<Object>} - Member dashboard data
+   */
+  getMemberDashboard: async () => {
+    try {
+      console.log('Fetching member dashboard data...');
+      const response = await api.get('/members/dashboard/');
+      console.log('Dashboard response received:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching member dashboard:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get all members
    * @param {Object} filters - Optional filters for the request
    * @returns {Promise<Array>} - List of members
@@ -124,15 +140,6 @@ const memberService = {
    */
   setShareCapitalTerm: async (id, term) => {
     const response = await api.post(`/members/members/${id}/set_share_capital_term/`, { term });
-    return response;
-  },
-
-  /**
-   * Get member dashboard data
-   * @returns {Promise<Object>} - Member dashboard data
-   */
-  getMemberDashboard: async () => {
-    const response = await api.get('/members/dashboard/');
     return response;
   },
 

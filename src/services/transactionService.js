@@ -3,6 +3,44 @@ import api from './api';
 
 const transactionService = {
   /**
+   * Calculate total investments (contributions + share capital) - FIXED
+   * @returns {Promise<Object>} - Total investments
+   */
+  calculateTotalInvestments: async () => {
+    try {
+      console.log('Calculating total investments...');
+      // Use the endpoint we added to transactions/urls.py
+      const response = await api.get('/transactions/total-investments/');
+      console.log('Financial response received:', response);
+      return response;
+    } catch (error) {
+      console.error("Error calculating total investments:", error);
+      // Fallback to dashboard data if the endpoint fails
+      try {
+        console.log('Trying fallback to dashboard data...');
+        const dashboardResponse = await api.get('/members/dashboard/');
+        const sharesData = dashboardResponse.shares_summary || {};
+        
+        const result = {
+          monthlyContributions: sharesData.total_contributions || 0,
+          shareCapital: sharesData.total_share_capital || 0,
+          totalInvestments: (sharesData.total_contributions || 0) + (sharesData.total_share_capital || 0)
+        };
+        
+        console.log('Fallback result:', result);
+        return result;
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+        return {
+          monthlyContributions: 0,
+          shareCapital: 0,
+          totalInvestments: 0
+        };
+      }
+    }
+  },
+
+  /**
    * Get all SACCO expenses
    * @param {Object} filters - Optional filters for the request
    * @returns {Promise<Array>} - List of expenses
@@ -237,35 +275,6 @@ const transactionService = {
   getFinancialSummary: async () => {
     const response = await api.get('/transactions/summary/');
     return response;
-  },
-
-  /**
-   * Calculate total investments (contributions + share capital)
-   * @returns {Promise<Object>} - Total investments
-   */
-  calculateTotalInvestments: async () => {
-    try {
-      // Get member dashboard which should include both contributions and share capital
-      const response = await api.get('/members/dashboard/');
-      
-      // Calculate total investments
-      const monthlyContributions = response.total_contributions || 0;
-      const shareCapital = response.share_summary?.total_share_capital || 0;
-      const totalInvestments = monthlyContributions + shareCapital;
-      
-      return {
-        monthlyContributions,
-        shareCapital,
-        totalInvestments
-      };
-    } catch (error) {
-      console.error("Error calculating total investments:", error);
-      return {
-        monthlyContributions: 0,
-        shareCapital: 0,
-        totalInvestments: 0
-      };
-    }
   }
 };
 
