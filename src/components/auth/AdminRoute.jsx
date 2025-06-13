@@ -9,7 +9,7 @@ const AdminRoute = ({ children }) => {
   console.log('AdminRoute Debug:');
   console.log('- Loading:', loading);
   console.log('- Current User:', JSON.stringify(currentUser, null, 2));
-  console.log('- Current User Role:', currentUser?.role);
+  console.log('- Current User is_admin:', currentUser?.is_admin);
 
   // Loading state
   if (loading) {
@@ -26,10 +26,8 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Role check with more robust comparison
-  const isAdmin = currentUser.role === 'ADMIN' || 
-                  currentUser.is_admin === true || 
-                  currentUser.role?.toUpperCase() === 'ADMIN';
+  // FIXED: Use consistent role checking
+  const isAdmin = currentUser.is_admin === true;
 
   console.log('Is Admin:', isAdmin);
 

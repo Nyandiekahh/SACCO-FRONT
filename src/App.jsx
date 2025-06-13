@@ -48,16 +48,10 @@ const RootRedirect = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Redirect based on user role
-  return currentUser.role === 'ADMIN' 
+  // FIXED: Use is_admin field for consistent role checking
+  return currentUser.is_admin === true
     ? <Navigate to="/admin/dashboard" replace />
     : <Navigate to="/member/dashboard" replace />;
-};
-
-// Wrapper to provide navigate to AuthProvider
-const AuthProviderWithNavigate = ({ children }) => {
-  const navigate = useNavigate();
-  return <AuthProvider navigate={navigate}>{children}</AuthProvider>;
 };
 
 // App with router outside AuthProvider, but routes inside AuthProviderWithNavigate

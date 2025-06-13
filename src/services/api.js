@@ -20,36 +20,8 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
 });
 
-// Track request timestamps to prevent rate limiting
-const requestTimestamps = {};
-const THROTTLE_INTERVAL = 500; // 500ms between requests to the same endpoint
-
 class ApiClient {
-  // Throttle requests to prevent 429 errors
-  async throttleRequest(endpoint) {
-    const now = Date.now();
-    
-    // Check if we've recently made a request to this endpoint
-    if (requestTimestamps[endpoint]) {
-      const timeSinceLastRequest = now - requestTimestamps[endpoint];
-      
-      // If the request is too soon after the previous one, delay it
-      if (timeSinceLastRequest < THROTTLE_INTERVAL) {
-        const delayTime = THROTTLE_INTERVAL - timeSinceLastRequest;
-        await new Promise(resolve => setTimeout(resolve, delayTime));
-      }
-    }
-    
-    // Update timestamp for this endpoint
-    requestTimestamps[endpoint] = Date.now();
-  }
-
   async request(endpoint, options = {}) {
-    // Apply request throttling for GET requests or profile endpoints
-    if (options.method === 'GET' || endpoint.includes('profile')) {
-      await this.throttleRequest(endpoint);
-    }
-    
     const fullUrl = `${API_URL}${endpoint}`;
     console.log(`Making ${options.method || 'GET'} request to:`, fullUrl);
     

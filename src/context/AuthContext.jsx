@@ -62,18 +62,11 @@ export const AuthProvider = ({ children, navigate }) => {
       // Attempt login
       const loginResult = await authService.login(email, password);
       
-      // Add a small delay to prevent immediate profile request
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       // Fetch user profile after successful login
       const userProfile = await authService.getCurrentUser();
-      setCurrentUser(userProfile);
       
       // Determine user route based on role
-      const isAdmin = 
-        userProfile.role === 'ADMIN' || 
-        userProfile.is_admin === true || 
-        userProfile.role?.toUpperCase() === 'ADMIN';
+      const isAdmin = userProfile.is_admin === true;
       
       // Navigate to appropriate dashboard (if navigate is provided)
       if (navigate) {
@@ -119,18 +112,11 @@ export const AuthProvider = ({ children, navigate }) => {
       const result = await authService.loginWithOTP(email, otp);
       
       if (result.user_exists) {
-        // Add a small delay to prevent immediate profile request
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
         // Fetch user profile
         const userProfile = await authService.getCurrentUser();
-        setCurrentUser(userProfile);
         
         // Determine routing
-        const isAdmin = 
-          userProfile.role === 'ADMIN' || 
-          userProfile.is_admin === true || 
-          userProfile.role?.toUpperCase() === 'ADMIN';
+        const isAdmin = userProfile.is_admin === true;
         
         // Navigate if possible
         if (navigate) {
@@ -173,18 +159,11 @@ export const AuthProvider = ({ children, navigate }) => {
     try {
       const result = await authService.completeRegistration(registrationData);
       
-      // Add a small delay to prevent immediate profile request
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       // Fetch user profile
       const userProfile = await authService.getCurrentUser();
-      setCurrentUser(userProfile);
       
       // Determine routing
-      const isAdmin = 
-        userProfile.role === 'ADMIN' || 
-        userProfile.is_admin === true || 
-        userProfile.role?.toUpperCase() === 'ADMIN';
+      const isAdmin = userProfile.is_admin === true;
       
       // Navigate if possible
       if (navigate) {
