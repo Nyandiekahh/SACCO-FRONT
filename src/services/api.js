@@ -21,6 +21,13 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 class ApiClient {
+  constructor() {
+    // Track retry attempts to prevent infinite loops
+    this.retryAttempts = new Map();
+    this.maxRetries = 3;
+    this.baseRetryDelay = 1000; // 1 second
+  }
+
   async request(endpoint, options = {}) {
     const fullUrl = `${API_URL}${endpoint}`;
     console.log(`Making ${options.method || 'GET'} request to:`, fullUrl);
@@ -58,14 +65,39 @@ class ApiClient {
         ok: response.ok
       });
       
-      // Handle 429 Too Many Requests
+      // Handle 429 Too Many Requests with improved retry logic
       if (response.status === 429) {
-        console.warn(`Rate limit hit on ${endpoint}. Waiting and retrying...`);
-        // Wait for a longer time before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // Try again with increased backoff
-        return this.request(endpoint, options);
+        const retryKey = `${endpoint}-${config.method || 'GET'}`;
+        const currentRetries = this.retryAttempts.get(retryKey) || 0;
+        
+        if (currentRetries < this.maxRetries) {
+          console.warn(`Rate limit hit on ${endpoint} (attempt ${currentRetries + 1}/${this.maxRetries}). Waiting and retrying...`);
+          
+          // Increment retry count
+          this.retryAttempts.set(retryKey, currentRetries + 1);
+          
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = this.baseRetryDelay * Math.pow(2, currentRetries);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          // Retry the request
+          return this.request(endpoint, options);
+        } else {
+          // Max retries exceeded, clear the counter and fail
+          console.error(`Max retries (${this.maxRetries}) exceeded for ${endpoint}`);
+          this.retryAttempts.delete(retryKey);
+          
+          return Promise.reject({
+            status: 429,
+            message: 'Rate limit exceeded. Please try again later.',
+            data: 'Too many requests - please wait before trying again.'
+          });
+        }
       }
+      
+      // Clear retry counter on successful response
+      const retryKey = `${endpoint}-${config.method || 'GET'}`;
+      this.retryAttempts.delete(retryKey);
       
       // Handle 401 Unauthorized - attempt token refresh
       if (response.status === 401) {
