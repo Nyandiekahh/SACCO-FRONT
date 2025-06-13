@@ -25,7 +25,7 @@ export const AuthProvider = ({ children, navigate }) => {
           // Attempt to get user profile
           const userProfile = await authService.getCurrentUser();
           setCurrentUser(userProfile);
-          console.log('User profile loaded successfully');
+          console.log('User profile loaded successfully:', userProfile);
         } catch (profileError) {
           console.error('Failed to load user profile:', profileError);
           
@@ -61,16 +61,24 @@ export const AuthProvider = ({ children, navigate }) => {
     try {
       // Attempt login
       const loginResult = await authService.login(email, password);
+      console.log('Login successful:', loginResult);
       
       // Fetch user profile after successful login
       const userProfile = await authService.getCurrentUser();
+      console.log('User profile fetched:', userProfile);
+      
+      // SET THE CURRENT USER - This was missing!
+      setCurrentUser(userProfile);
       
       // Determine user route based on role
       const isAdmin = userProfile.is_admin === true;
+      console.log('Is admin?', isAdmin);
       
       // Navigate to appropriate dashboard (if navigate is provided)
       if (navigate) {
-        navigate(isAdmin ? '/admin/dashboard' : '/member/dashboard');
+        const targetRoute = isAdmin ? '/admin/dashboard' : '/member/dashboard';
+        console.log('Navigating to:', targetRoute);
+        navigate(targetRoute);
       }
       
       return { success: true };
@@ -114,6 +122,9 @@ export const AuthProvider = ({ children, navigate }) => {
       if (result.user_exists) {
         // Fetch user profile
         const userProfile = await authService.getCurrentUser();
+        
+        // SET THE CURRENT USER - This was also missing!
+        setCurrentUser(userProfile);
         
         // Determine routing
         const isAdmin = userProfile.is_admin === true;
@@ -161,6 +172,9 @@ export const AuthProvider = ({ children, navigate }) => {
       
       // Fetch user profile
       const userProfile = await authService.getCurrentUser();
+      
+      // SET THE CURRENT USER
+      setCurrentUser(userProfile);
       
       // Determine routing
       const isAdmin = userProfile.is_admin === true;
